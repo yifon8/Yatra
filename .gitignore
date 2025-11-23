@@ -44,6 +44,7 @@ ENV/
 # Dataset files (large files, download separately)
 data/*.csv
 !data/sample_destinations.csv
+!data/destinations.csv
 
 # API keys (never commit these!)
 *.key
