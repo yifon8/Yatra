@@ -74,8 +74,9 @@ def interactive_mode(agent: DestinationSuggester):
 
     # Duration
     print("\n3. How many hours do you have for the visit?")
+    print("   (You can enter decimal values like 0.5, 1.5, 8.25)")
     hours_input = input("   Hours (or press Enter to skip): ").strip()
-    hours = int(hours_input) if hours_input else None
+    hours = float(hours_input) if hours_input else None
 
     # Budget
     print("\n4. What is your budget in Indian Rupees?")
@@ -154,8 +155,8 @@ Examples:
   # Chat mode
   python run_agent.py -c
 
-  # Command line mode with specific parameters
-  python run_agent.py --type beach --child --hours 8 --budget 5000
+  # Command line mode with specific parameters (hours can be decimal)
+  python run_agent.py --type beach --child --hours 8.5 --budget 5000
 
   # Use custom dataset
   python run_agent.py -i --csv data/my_dataset.csv
@@ -188,8 +189,8 @@ Examples:
 
     parser.add_argument(
         '--hours',
-        type=int,
-        help='Available time in hours'
+        type=float,
+        help='Available time in hours (can be decimal, e.g., 0.5, 1.5, 8.25)'
     )
 
     parser.add_argument(

@@ -44,8 +44,8 @@ class TravelTools:
                             "description": "Maximum budget in Indian Rupees (₹)"
                         },
                         "max_hours": {
-                            "type": "integer",
-                            "description": "Maximum visit duration in hours"
+                            "type": "number",
+                            "description": "Maximum visit duration in hours (can be decimal, e.g., 0.5, 1.5, 8.25)"
                         }
                     },
                     "required": []
@@ -116,14 +116,14 @@ class TravelTools:
     def search_destinations_quantitative(self,
                                         destination_type: Optional[str] = None,
                                         max_budget: Optional[float] = None,
-                                        max_hours: Optional[int] = None) -> Dict[str, Any]:
+                                        max_hours: Optional[float] = None) -> Dict[str, Any]:
         """
         Search destinations using quantitative filters
 
         Args:
             destination_type: Type of destination to filter by
             max_budget: Maximum budget in rupees
-            max_hours: Maximum duration in hours
+            max_hours: Maximum duration in hours (can be decimal, e.g., 0.5, 1.5, 8.25)
 
         Returns:
             Dictionary with search results

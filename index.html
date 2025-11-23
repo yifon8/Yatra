@@ -265,9 +265,9 @@
 
                 <!-- Row 2, Column 1: Hours input -->
                 <div class="form-group">
-                    <label for="hours">Visit Duration</label>
+                    <label for="hours">Visit Duration (Optional)</label>
                     <div class="input-with-unit">
-                        <input type="number" id="hours" name="hours" min="1" placeholder="Enter hours">
+                        <input type="number" id="hours" name="hours" step="0.01" min="0.01" placeholder="e.g., 0.5, 1.5, 8.25">
                         <span class="unit">hours</span>
                     </div>
                 </div>
@@ -317,8 +317,8 @@
             // Get smallChild checkbox value (true/false)
             const smallChild = smallChildCheckbox.checked;
 
-            // Get duration from hours input (positive integer)
-            const duration = parseInt(hoursInput.value) || 0;
+            // Get duration from hours input (decimal value or null if empty)
+            const duration = hoursInput.value ? parseFloat(hoursInput.value) : null;
 
             // Get budget from budget input (positive integer)
             const budget = parseInt(budgetInput.value) || 0;
@@ -339,8 +339,9 @@
                 errors.push('Please select a destination type');
             }
 
-            if (data.duration <= 0) {
-                errors.push('Please enter a valid visit duration (positive hours)');
+            // Duration is optional, but if provided, must be > 0
+            if (data.duration !== null && data.duration <= 0) {
+                errors.push('Visit duration must be greater than 0 hours (e.g., 0.5, 1.5, 8.25)');
             }
 
             if (data.budget <= 0) {

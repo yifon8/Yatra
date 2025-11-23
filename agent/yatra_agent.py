@@ -120,7 +120,7 @@ class DestinationSuggester:
     def suggest_destinations(self,
                            destination_type: Optional[str] = None,
                            has_small_child: bool = False,
-                           hours: Optional[int] = None,
+                           hours: Optional[float] = None,
                            budget: Optional[float] = None,
                            max_iterations: int = 5) -> Dict[str, Any]:
         """
@@ -129,7 +129,7 @@ class DestinationSuggester:
         Args:
             destination_type: Type of destination (beach, mountain, heritage, wildlife)
             has_small_child: Whether traveling with a small child
-            hours: Available time in hours
+            hours: Available time in hours (can be decimal, e.g., 0.5, 1.5, 8.25)
             budget: Budget in rupees
             max_iterations: Maximum tool calling iterations
 
@@ -208,7 +208,7 @@ class DestinationSuggester:
     def _create_query(self,
                      destination_type: Optional[str],
                      has_small_child: bool,
-                     hours: Optional[int],
+                     hours: Optional[float],
                      budget: Optional[float]) -> str:
         """Create a natural language query from user parameters"""
         query_parts = ["I'm looking for travel destination recommendations in India"]
@@ -219,8 +219,10 @@ class DestinationSuggester:
         if has_small_child:
             query_parts.append("that are suitable for families with small children")
 
-        if hours:
-            query_parts.append(f"where we can visit within {hours} hours")
+        if hours is not None:
+            # Format hours nicely (remove .0 for whole numbers)
+            hours_str = f"{hours:g}"
+            query_parts.append(f"where we can visit within {hours_str} hours")
 
         if budget:
             query_parts.append(f"with a budget of around ₹{budget:,.0f}")

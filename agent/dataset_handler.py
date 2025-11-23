@@ -122,13 +122,13 @@ class DatasetHandler:
         return self.df
 
     def filter_by_duration(self,
-                          max_hours: int,
+                          max_hours: float,
                           duration_column: str = None) -> pd.DataFrame:
         """
         Filter destinations by recommended visit duration
 
         Args:
-            max_hours: Maximum duration in hours
+            max_hours: Maximum duration in hours (can be decimal, e.g., 0.5, 1.5, 8.25)
             duration_column: Name of duration column (auto-detected if None)
 
         Returns:
@@ -160,14 +160,14 @@ class DatasetHandler:
     def search_quantitative(self,
                           destination_type: Optional[str] = None,
                           max_budget: Optional[float] = None,
-                          max_hours: Optional[int] = None) -> pd.DataFrame:
+                          max_hours: Optional[float] = None) -> pd.DataFrame:
         """
         Perform combined quantitative search
 
         Args:
             destination_type: Type of destination
             max_budget: Maximum budget
-            max_hours: Maximum duration
+            max_hours: Maximum duration in hours (can be decimal, e.g., 0.5, 1.5, 8.25)
 
         Returns:
             Filtered DataFrame matching all criteria
