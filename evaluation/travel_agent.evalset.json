@@ -1,0 +1,139 @@
+{
+  "description": "Evaluation set for Yatra Travel Agent",
+  "version": "1.0",
+  "test_cases": [
+    {
+      "id": "test_001",
+      "description": "Family with small child looking for beach destination",
+      "input": {
+        "destination_type": "beach",
+        "has_small_child": true,
+        "hours": 8,
+        "budget": 5000
+      },
+      "expected_criteria": [
+        "Should suggest family-friendly beach destinations",
+        "Should consider safety for small children",
+        "Should be within budget",
+        "Should be suitable for 8-hour visit"
+      ]
+    },
+    {
+      "id": "test_002",
+      "description": "Mountain destination without children, flexible budget",
+      "input": {
+        "destination_type": "mountain",
+        "has_small_child": false,
+        "hours": 12,
+        "budget": 10000
+      },
+      "expected_criteria": [
+        "Should suggest mountain/hill station destinations",
+        "Can suggest more adventurous locations",
+        "Should be within budget"
+      ]
+    },
+    {
+      "id": "test_003",
+      "description": "Heritage site with small child, limited time",
+      "input": {
+        "destination_type": "heritage",
+        "has_small_child": true,
+        "hours": 4,
+        "budget": 3000
+      },
+      "expected_criteria": [
+        "Should suggest heritage sites suitable for short visits",
+        "Should consider child-friendly amenities",
+        "Should be budget-conscious",
+        "Should be manageable in 4 hours"
+      ]
+    },
+    {
+      "id": "test_004",
+      "description": "Wildlife destination without budget constraint",
+      "input": {
+        "destination_type": "wildlife",
+        "has_small_child": false,
+        "hours": 24,
+        "budget": null
+      },
+      "expected_criteria": [
+        "Should suggest wildlife/nature destinations",
+        "Can suggest full-day or overnight experiences",
+        "Budget is not a limiting factor"
+      ]
+    },
+    {
+      "id": "test_005",
+      "description": "Any destination type with small child, strict budget",
+      "input": {
+        "destination_type": null,
+        "has_small_child": true,
+        "hours": 6,
+        "budget": 2000
+      },
+      "expected_criteria": [
+        "Should consider all destination types",
+        "Should prioritize family-friendly options",
+        "Must stay within strict budget of ₹2000",
+        "Should be suitable for 6-hour visit"
+      ]
+    },
+    {
+      "id": "test_006",
+      "description": "Beach destination, no special requirements",
+      "input": {
+        "destination_type": "beach",
+        "has_small_child": false,
+        "hours": null,
+        "budget": null
+      },
+      "expected_criteria": [
+        "Should suggest beach destinations",
+        "Can suggest variety from budget to premium",
+        "No time constraints"
+      ]
+    },
+    {
+      "id": "test_007",
+      "description": "Cultural destination with family, moderate budget",
+      "input": {
+        "destination_type": "heritage",
+        "has_small_child": true,
+        "hours": 10,
+        "budget": 7000
+      },
+      "expected_criteria": [
+        "Should suggest educational/cultural sites",
+        "Should have family facilities",
+        "Should provide learning opportunities for children",
+        "Within moderate budget range"
+      ]
+    },
+    {
+      "id": "test_008",
+      "description": "Mountain destination with very limited time",
+      "input": {
+        "destination_type": "mountain",
+        "has_small_child": true,
+        "hours": 3,
+        "budget": 4000
+      },
+      "expected_criteria": [
+        "Should suggest nearby hill stations or viewpoints",
+        "Must be accessible within 3 hours",
+        "Should be suitable for very young children",
+        "Should acknowledge time limitation in recommendations"
+      ]
+    }
+  ],
+  "evaluation_metrics": {
+    "relevance": "How well recommendations match user criteria",
+    "family_friendliness": "Appropriate considerations for families with children",
+    "budget_compliance": "Recommendations stay within specified budget",
+    "time_compliance": "Recommendations fit within time constraints",
+    "reasoning_quality": "Clear explanation for each recommendation",
+    "diversity": "Variety in recommendations (not all similar destinations)"
+  }
+}
