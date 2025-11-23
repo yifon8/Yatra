@@ -17,32 +17,41 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            background: linear-gradient(135deg, #9b59b6 0%, #6a1b9a 100%);
+            background: linear-gradient(135deg, #5a5a5a 0%, #3a3a3a 100%);
+            overflow: hidden;
+        }
+
+        .main-wrapper {
+            display: flex;
+            gap: 30px;
+            align-items: stretch;
+            max-height: 90vh;
         }
 
         .container {
             background: white;
-            padding: 40px;
+            padding: 30px;
             border-radius: 15px;
             box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
             text-align: center;
-            max-width: 600px;
-            width: 90%;
+            width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
         }
 
         .banner {
-            font-size: 32px;
+            font-size: 28px;
             font-weight: bold;
-            color: #6a1b9a;
-            margin-bottom: 40px;
+            color: #d97531;
+            margin-bottom: 30px;
             text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
         }
 
         .form-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 30px;
-            margin-top: 20px;
+            gap: 20px;
+            margin-top: 15px;
         }
 
         .form-group {
@@ -72,7 +81,7 @@
         .form-group select:focus,
         .form-group input[type="number"]:focus {
             outline: none;
-            border-color: #9b59b6;
+            border-color: #d97531;
         }
 
         .checkbox-group {
@@ -119,25 +128,25 @@
         .button-container {
             display: flex;
             justify-content: flex-end;
-            margin-top: 30px;
+            margin-top: 20px;
         }
 
         .submit-button {
-            background: linear-gradient(135deg, #9b59b6 0%, #6a1b9a 100%);
+            background: linear-gradient(135deg, #d97531 0%, #b85a1f 100%);
             color: white;
             border: none;
-            padding: 15px 35px;
-            font-size: 18px;
+            padding: 12px 28px;
+            font-size: 16px;
             font-weight: 600;
             border-radius: 8px;
             cursor: pointer;
-            box-shadow: 0 4px 15px rgba(106, 27, 154, 0.3);
+            box-shadow: 0 4px 15px rgba(217, 117, 49, 0.3);
             transition: transform 0.2s, box-shadow 0.2s;
         }
 
         .submit-button:hover {
             transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(106, 27, 154, 0.4);
+            box-shadow: 0 6px 20px rgba(217, 117, 49, 0.4);
         }
 
         .submit-button:active {
@@ -145,37 +154,48 @@
         }
 
         .results-container {
-            margin-top: 40px;
+            background: white;
             padding: 30px;
-            background: #f8f4fb;
-            border-radius: 12px;
-            border: 2px solid #9b59b6;
-            display: none;
-        }
-
-        .results-container.show {
-            display: block;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
         }
 
         .results-title {
-            font-size: 22px;
-            font-weight: 600;
-            color: #6a1b9a;
+            font-size: 28px;
+            font-weight: bold;
+            color: #d97531;
             margin-bottom: 20px;
             text-align: center;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .results-content {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #666;
+            font-size: 16px;
+            min-height: 200px;
         }
 
         .results-list {
             list-style: none;
             padding: 0;
+            margin: 0;
         }
 
         .results-list li {
             padding: 15px;
             margin-bottom: 10px;
-            background: white;
+            background: #f8f4f0;
             border-radius: 8px;
-            border-left: 4px solid #9b59b6;
+            border-left: 4px solid #d97531;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
             font-size: 16px;
             color: #333;
@@ -187,61 +207,64 @@
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="banner">Yatra, your family's Travel Agent for India</div>
+    <div class="main-wrapper">
+        <!-- Form Container -->
+        <div class="container">
+            <div class="banner">Yatra, your family's Travel Agent for India</div>
 
-        <div class="form-grid">
-            <!-- Row 1, Column 1: Dropdown for destination types -->
-            <div class="form-group">
-                <label for="destination">Destination Type</label>
-                <select id="destination" name="destination" required>
-                    <option value="">Select a destination</option>
-                    <option value="beach">Beach & Coastal</option>
-                    <option value="mountain">Mountain & Hill Stations</option>
-                    <option value="heritage">Heritage & Cultural</option>
-                    <option value="wildlife">Wildlife & Nature</option>
-                </select>
-            </div>
+            <div class="form-grid">
+                <!-- Row 1, Column 1: Dropdown for destination types -->
+                <div class="form-group">
+                    <label for="destination">Destination Type</label>
+                    <select id="destination" name="destination" required>
+                        <option value="">Select a destination</option>
+                        <option value="beach">Beach & Coastal</option>
+                        <option value="mountain">Mountain & Hill Stations</option>
+                        <option value="heritage">Heritage & Cultural</option>
+                        <option value="wildlife">Wildlife & Nature</option>
+                    </select>
+                </div>
 
-            <!-- Row 1, Column 2: Checkbox for small child -->
-            <div class="form-group">
-                <label for="smallChild">Traveling with Family</label>
-                <div class="checkbox-group">
-                    <input type="checkbox" id="smallChild" name="smallChild">
-                    <label for="smallChild">Small Child</label>
+                <!-- Row 1, Column 2: Checkbox for small child -->
+                <div class="form-group">
+                    <label for="smallChild">Traveling with Family</label>
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="smallChild" name="smallChild">
+                        <label for="smallChild">Small Child</label>
+                    </div>
+                </div>
+
+                <!-- Row 2, Column 1: Hours input -->
+                <div class="form-group">
+                    <label for="hours">Travel Duration</label>
+                    <div class="input-with-unit">
+                        <input type="number" id="hours" name="hours" min="1" placeholder="Enter hours">
+                        <span class="unit">hours</span>
+                    </div>
+                </div>
+
+                <!-- Row 2, Column 2: Budget input -->
+                <div class="form-group">
+                    <label for="budget">Budget</label>
+                    <div class="input-with-unit">
+                        <input type="number" id="budget" name="budget" min="1" placeholder="Enter amount">
+                        <span class="unit">Rupees</span>
+                    </div>
                 </div>
             </div>
 
-            <!-- Row 2, Column 1: Hours input -->
-            <div class="form-group">
-                <label for="hours">Travel Duration</label>
-                <div class="input-with-unit">
-                    <input type="number" id="hours" name="hours" min="1" placeholder="Enter hours">
-                    <span class="unit">hours</span>
-                </div>
+            <!-- Submit Button -->
+            <div class="button-container">
+                <button type="button" class="submit-button" id="submitBtn">Help me, Yatra!</button>
             </div>
-
-            <!-- Row 2, Column 2: Budget input -->
-            <div class="form-group">
-                <label for="budget">Budget</label>
-                <div class="input-with-unit">
-                    <input type="number" id="budget" name="budget" min="1" placeholder="Enter amount">
-                    <span class="unit">Rupees</span>
-                </div>
-            </div>
-        </div>
-
-        <!-- Submit Button -->
-        <div class="button-container">
-            <button type="button" class="submit-button" id="submitBtn">Help me, Yatra!</button>
         </div>
 
         <!-- Results Container -->
         <div class="results-container" id="resultsContainer">
-            <div class="results-title">Destination Suggestions</div>
-            <ul class="results-list" id="resultsList">
-                <!-- Results will be populated here -->
-            </ul>
+            <div class="results-title">Yatra says:</div>
+            <div class="results-content" id="resultsContent">
+                <p>Your travel recommendations will appear here...</p>
+            </div>
         </div>
     </div>
 </body>
