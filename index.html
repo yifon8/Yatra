@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Yatra - Your Travel Agent for India</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            text-align: center;
+            max-width: 600px;
+            width: 90%;
+        }
+
+        .banner {
+            font-size: 32px;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 40px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-top: 20px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .form-group label {
+            font-size: 14px;
+            font-weight: 600;
+            color: #333;
+            text-align: center;
+        }
+
+        .form-group select,
+        .form-group input[type="number"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        .form-group select:focus,
+        .form-group input[type="number"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+
+        .checkbox-group label {
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+            cursor: pointer;
+        }
+
+        .input-with-unit {
+            position: relative;
+            width: 100%;
+        }
+
+        .input-with-unit input {
+            width: 100%;
+            padding-right: 60px;
+        }
+
+        .input-with-unit .unit {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #666;
+            font-weight: 600;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="banner">Yatra, your travel agent for India</div>
+
+        <div class="form-grid">
+            <!-- Row 1, Column 1: Dropdown for destination types -->
+            <div class="form-group">
+                <label for="destination">Destination Type</label>
+                <select id="destination" name="destination">
+                    <option value="">Select a destination</option>
+                    <option value="beach">Beach & Coastal</option>
+                    <option value="mountain">Mountain & Hill Stations</option>
+                    <option value="heritage">Heritage & Cultural</option>
+                    <option value="wildlife">Wildlife & Nature</option>
+                </select>
+            </div>
+
+            <!-- Row 1, Column 2: Checkbox for small child -->
+            <div class="form-group">
+                <label for="smallChild">Traveling with Family</label>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="smallChild" name="smallChild">
+                    <label for="smallChild">Small Child</label>
+                </div>
+            </div>
+
+            <!-- Row 2, Column 1: Hours input -->
+            <div class="form-group">
+                <label for="hours">Travel Duration</label>
+                <div class="input-with-unit">
+                    <input type="number" id="hours" name="hours" min="1" placeholder="Enter hours">
+                    <span class="unit">hours</span>
+                </div>
+            </div>
+
+            <!-- Row 2, Column 2: Budget input -->
+            <div class="form-group">
+                <label for="budget">Budget</label>
+                <div class="input-with-unit">
+                    <input type="number" id="budget" name="budget" min="1" placeholder="Enter amount">
+                    <span class="unit">Rupees</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
