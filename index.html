@@ -298,5 +298,161 @@
             <button type="button" class="retry-button" id="retryBtn">Retry</button>
         </div>
     </div>
+
+    <script>
+        // Get form elements
+        const destinationSelect = document.getElementById('destination');
+        const smallChildCheckbox = document.getElementById('smallChild');
+        const hoursInput = document.getElementById('hours');
+        const budgetInput = document.getElementById('budget');
+        const submitBtn = document.getElementById('submitBtn');
+        const retryBtn = document.getElementById('retryBtn');
+        const resultsContent = document.getElementById('resultsContent');
+
+        // Function to get form data
+        function getFormData() {
+            // Get destination type from dropdown
+            const destinationType = destinationSelect.value;
+
+            // Get smallChild checkbox value (true/false)
+            const smallChild = smallChildCheckbox.checked;
+
+            // Get duration from hours input (positive integer)
+            const duration = parseInt(hoursInput.value) || 0;
+
+            // Get budget from budget input (positive integer)
+            const budget = parseInt(budgetInput.value) || 0;
+
+            return {
+                destinationType,
+                smallChild,
+                duration,
+                budget
+            };
+        }
+
+        // Function to validate form data
+        function validateFormData(data) {
+            const errors = [];
+
+            if (!data.destinationType) {
+                errors.push('Please select a destination type');
+            }
+
+            if (data.duration <= 0) {
+                errors.push('Please enter a valid visit duration (positive hours)');
+            }
+
+            if (data.budget <= 0) {
+                errors.push('Please enter a valid budget (positive amount in Rupees)');
+            }
+
+            return errors;
+        }
+
+        // Function to send request to backend
+        async function submitForm() {
+            const formData = getFormData();
+
+            // Validate form data
+            const errors = validateFormData(formData);
+            if (errors.length > 0) {
+                resultsContent.innerHTML = `
+                    <div style="color: #d97531; text-align: left;">
+                        <strong>Please fix the following errors:</strong>
+                        <ul style="margin-top: 10px; padding-left: 20px;">
+                            ${errors.map(err => `<li>${err}</li>`).join('')}
+                        </ul>
+                    </div>
+                `;
+                return;
+            }
+
+            // Show loading state
+            resultsContent.innerHTML = '<p>🔍 Searching for the best destinations for you...</p>';
+            submitBtn.disabled = true;
+
+            try {
+                // Send POST request to backend API
+                const response = await fetch('/api/suggest', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(formData)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.status}`);
+                }
+
+                const result = await response.json();
+
+                // Display results
+                if (result.success) {
+                    displayRecommendations(result.recommendations);
+                } else {
+                    resultsContent.innerHTML = `<p style="color: #d97531;">Error: ${result.error}</p>`;
+                }
+
+            } catch (error) {
+                console.error('Error:', error);
+                resultsContent.innerHTML = `
+                    <p style="color: #d97531;">
+                        ❌ Failed to get recommendations. Please make sure the server is running.
+                        <br><br>
+                        Error: ${error.message}
+                    </p>
+                `;
+            } finally {
+                submitBtn.disabled = false;
+            }
+        }
+
+        // Function to display recommendations
+        function displayRecommendations(recommendations) {
+            // Convert text to HTML with proper formatting
+            const formattedText = recommendations
+                .replace(/\n\n/g, '<br><br>')
+                .replace(/\n/g, '<br>')
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.*?)\*/g, '<em>$1</em>');
+
+            resultsContent.innerHTML = `
+                <div style="text-align: left; line-height: 1.6;">
+                    ${formattedText}
+                </div>
+            `;
+        }
+
+        // Event listeners
+        submitBtn.addEventListener('click', submitForm);
+
+        retryBtn.addEventListener('click', () => {
+            // Reset form
+            destinationSelect.value = '';
+            smallChildCheckbox.checked = false;
+            hoursInput.value = '';
+            budgetInput.value = '';
+
+            // Reset results
+            resultsContent.innerHTML = '<p>Your travel recommendations will appear here...</p>';
+        });
+
+        // Allow Enter key to submit form
+        document.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                submitForm();
+            }
+        });
+
+        // Log form data to console for debugging (can be removed in production)
+        console.log('Form input handler initialized');
+        console.log('Available functions:', {
+            getFormData: 'Get current form values',
+            validateFormData: 'Validate form inputs',
+            submitForm: 'Submit form to backend API'
+        });
+    </script>
 </body>
 </html>
