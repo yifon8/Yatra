@@ -204,6 +204,35 @@
         .results-list li:last-child {
             margin-bottom: 0;
         }
+
+        .results-divider {
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #d97531, transparent);
+            margin: 20px 0;
+        }
+
+        .retry-button {
+            background: linear-gradient(135deg, #d97531 0%, #b85a1f 100%);
+            color: white;
+            border: none;
+            padding: 12px 28px;
+            font-size: 16px;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(217, 117, 49, 0.3);
+            transition: transform 0.2s, box-shadow 0.2s;
+            width: 100%;
+        }
+
+        .retry-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(217, 117, 49, 0.4);
+        }
+
+        .retry-button:active {
+            transform: translateY(0);
+        }
     </style>
 </head>
 <body>
@@ -265,6 +294,8 @@
             <div class="results-content" id="resultsContent">
                 <p>Your travel recommendations will appear here...</p>
             </div>
+            <div class="results-divider"></div>
+            <button type="button" class="retry-button" id="retryBtn">Retry</button>
         </div>
     </div>
 </body>
