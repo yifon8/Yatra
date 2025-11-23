@@ -17,7 +17,7 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #9b59b6 0%, #6a1b9a 100%);
         }
 
         .container {
@@ -33,7 +33,7 @@
         .banner {
             font-size: 32px;
             font-weight: bold;
-            color: #667eea;
+            color: #6a1b9a;
             margin-bottom: 40px;
             text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
         }
@@ -72,7 +72,7 @@
         .form-group select:focus,
         .form-group input[type="number"]:focus {
             outline: none;
-            border-color: #667eea;
+            border-color: #9b59b6;
         }
 
         .checkbox-group {
@@ -115,17 +115,86 @@
             font-weight: 600;
             pointer-events: none;
         }
+
+        .button-container {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 30px;
+        }
+
+        .submit-button {
+            background: linear-gradient(135deg, #9b59b6 0%, #6a1b9a 100%);
+            color: white;
+            border: none;
+            padding: 15px 35px;
+            font-size: 18px;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(106, 27, 154, 0.3);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .submit-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(106, 27, 154, 0.4);
+        }
+
+        .submit-button:active {
+            transform: translateY(0);
+        }
+
+        .results-container {
+            margin-top: 40px;
+            padding: 30px;
+            background: #f8f4fb;
+            border-radius: 12px;
+            border: 2px solid #9b59b6;
+            display: none;
+        }
+
+        .results-container.show {
+            display: block;
+        }
+
+        .results-title {
+            font-size: 22px;
+            font-weight: 600;
+            color: #6a1b9a;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .results-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .results-list li {
+            padding: 15px;
+            margin-bottom: 10px;
+            background: white;
+            border-radius: 8px;
+            border-left: 4px solid #9b59b6;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            font-size: 16px;
+            color: #333;
+        }
+
+        .results-list li:last-child {
+            margin-bottom: 0;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="banner">Yatra, your travel agent for India</div>
+        <div class="banner">Yatra, your family's Travel Agent for India</div>
 
         <div class="form-grid">
             <!-- Row 1, Column 1: Dropdown for destination types -->
             <div class="form-group">
                 <label for="destination">Destination Type</label>
-                <select id="destination" name="destination">
+                <select id="destination" name="destination" required>
                     <option value="">Select a destination</option>
                     <option value="beach">Beach & Coastal</option>
                     <option value="mountain">Mountain & Hill Stations</option>
@@ -160,6 +229,19 @@
                     <span class="unit">Rupees</span>
                 </div>
             </div>
+        </div>
+
+        <!-- Submit Button -->
+        <div class="button-container">
+            <button type="button" class="submit-button" id="submitBtn">Help me, Yatra!</button>
+        </div>
+
+        <!-- Results Container -->
+        <div class="results-container" id="resultsContainer">
+            <div class="results-title">Destination Suggestions</div>
+            <ul class="results-list" id="resultsList">
+                <!-- Results will be populated here -->
+            </ul>
         </div>
     </div>
 </body>
