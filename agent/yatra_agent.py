@@ -61,17 +61,61 @@ class DestinationSuggester:
         # Convert to Google ADK format
         tools = []
         for tool_decl in tool_declarations:
+            # Convert parameters dict to Schema object (required on Windows)
+            params_dict = tool_decl["parameters"]
+            params_schema = genai.protos.Schema(
+                type=genai.protos.Type.OBJECT,
+                properties={
+                    key: genai.protos.Schema(**self._convert_property_to_schema(value))
+                    for key, value in params_dict.get("properties", {}).items()
+                },
+                required=params_dict.get("required", [])
+            )
+
             tools.append(genai.protos.Tool(
                 function_declarations=[
                     genai.protos.FunctionDeclaration(
                         name=tool_decl["name"],
                         description=tool_decl["description"],
-                        parameters=tool_decl["parameters"]
+                        parameters=params_schema
                     )
                 ]
             ))
 
         return tools
+
+    def _convert_property_to_schema(self, property_def: dict) -> dict:
+        """Convert a property definition to Schema format"""
+        schema_dict = {}
+
+        # Map JSON schema types to protobuf types
+        type_mapping = {
+            "string": genai.protos.Type.STRING,
+            "number": genai.protos.Type.NUMBER,
+            "integer": genai.protos.Type.INTEGER,
+            "boolean": genai.protos.Type.BOOLEAN,
+            "array": genai.protos.Type.ARRAY,
+            "object": genai.protos.Type.OBJECT
+        }
+
+        prop_type = property_def.get("type", "string")
+        schema_dict["type"] = type_mapping.get(prop_type, genai.protos.Type.STRING)
+
+        if "description" in property_def:
+            schema_dict["description"] = property_def["description"]
+
+        if "enum" in property_def:
+            schema_dict["enum"] = property_def["enum"]
+
+        # Handle array items
+        if prop_type == "array" and "items" in property_def:
+            items_def = property_def["items"]
+            items_type = items_def.get("type", "string")
+            schema_dict["items"] = genai.protos.Schema(
+                type=type_mapping.get(items_type, genai.protos.Type.STRING)
+            )
+
+        return schema_dict
 
     def suggest_destinations(self,
                            destination_type: Optional[str] = None,
