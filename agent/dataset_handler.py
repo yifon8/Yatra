@@ -104,8 +104,8 @@ class DatasetHandler:
         """
         if budget_column is None:
             # Try to find budget-related columns
-            possible_columns = ['budget', 'cost', 'price', 'estimated_cost',
-                              'average_cost', 'budget_per_person']
+            possible_columns = ['entrance_fee_in_inr', 'budget', 'cost', 'price',
+                              'estimated_cost', 'average_cost', 'budget_per_person']
 
             for col in possible_columns:
                 if col in self.df.columns:
@@ -137,7 +137,7 @@ class DatasetHandler:
         if duration_column is None:
             # Try to find duration-related columns
             possible_columns = ['duration', 'recommended_duration', 'visit_duration',
-                              'time_required', 'hours', 'days']
+                              'time_required', 'hours', 'days', 'time_needed_to_visit_in_hrs']
 
             for col in possible_columns:
                 if col in self.df.columns:
@@ -157,33 +157,145 @@ class DatasetHandler:
 
         return self.df
 
+    def filter_by_rating(self, min_rating: float = 4.0) -> pd.DataFrame:
+        """
+        Filter destinations by rating - keeps destinations with null rating OR rating > min_rating
+
+        Args:
+            min_rating: Minimum rating threshold (default 4.0 out of 5.0)
+
+        Returns:
+            Filtered DataFrame
+        """
+        # Try to find rating-related columns
+        possible_columns = ['rating', 'google_review_rating', 'review_rating',
+                          'user_rating', 'average_rating']
+
+        rating_column = None
+        for col in possible_columns:
+            if col in self.df.columns:
+                rating_column = col
+                break
+
+        if rating_column:
+            # Convert to numeric
+            rating_values = pd.to_numeric(self.df[rating_column], errors='coerce')
+
+            # Keep destinations with null rating OR rating > min_rating
+            mask = rating_values.isna() | (rating_values > min_rating)
+            return self.df[mask]
+
+        # If no rating column found, return all destinations
+        return self.df
+
+    def filter_by_family_friendly(self, has_small_child: bool = False) -> pd.DataFrame:
+        """
+        Filter destinations for family-friendliness based on type and significance
+
+        Args:
+            has_small_child: If True, apply stricter filtering for small children
+
+        Returns:
+            Filtered DataFrame with family-friendly destinations
+        """
+        # Family-friendly destination types
+        family_friendly_types = [
+            'park', 'botanical garden', 'botanical', 'garden', 'zoo',
+            'museum', 'science', 'aquarium', 'amusement park',
+            'theme park', 'lake', 'beach', 'palace', 'fort',
+            'temple', 'church', 'gurudwara', 'monument', 'memorial',
+            'waterfall', 'valley', 'viewpoint', 'scenic', 'nature',
+            'island', 'mall', 'shopping'
+        ]
+
+        # Less suitable for small children (stricter filter)
+        if has_small_child:
+            exclude_for_small_children = [
+                'trekking', 'trek', 'adventure sport', 'paragliding',
+                'ski resort', 'cricket ground', 'race track',
+                'national park', 'wildlife sanctuary', 'hill'
+            ]
+        else:
+            exclude_for_small_children = []
+
+        # Check if type column exists
+        type_column = None
+        possible_type_columns = ['type', 'category', 'destination_type', 'place_type']
+
+        for col in possible_type_columns:
+            if col in self.df.columns:
+                type_column = col
+                break
+
+        if type_column:
+            # Convert type to lowercase for matching
+            type_lower = self.df[type_column].str.lower()
+
+            # Include family-friendly types
+            family_mask = type_lower.str.contains('|'.join(family_friendly_types),
+                                                  case=False, na=False, regex=True)
+
+            # Exclude types not suitable for small children if specified
+            if exclude_for_small_children:
+                exclude_mask = type_lower.str.contains('|'.join(exclude_for_small_children),
+                                                       case=False, na=False, regex=True)
+                family_mask = family_mask & ~exclude_mask
+
+            return self.df[family_mask]
+
+        # If no type column found, return all destinations
+        return self.df
+
     def search_quantitative(self,
                           destination_type: Optional[str] = None,
                           max_budget: Optional[float] = None,
-                          max_hours: Optional[float] = None) -> pd.DataFrame:
+                          max_hours: Optional[float] = None,
+                          has_small_child: bool = False) -> pd.DataFrame:
         """
-        Perform combined quantitative search
+        Perform combined quantitative search with system-level filters
+
+        IMPORTANT: This method ALWAYS applies system-level filters:
+        - Rating must be null or > 4.0
+        - Destinations must be family-friendly
 
         Args:
             destination_type: Type of destination
             max_budget: Maximum budget
             max_hours: Maximum duration in hours (can be decimal, e.g., 0.5, 1.5, 8.25)
+            has_small_child: If True, apply stricter family-friendly filtering
 
         Returns:
             Filtered DataFrame matching all criteria
         """
         result = self.df.copy()
 
-        if destination_type:
-            result = self.filter_by_type(destination_type)
+        # SYSTEM-LEVEL FILTERS (always applied)
+        # 1. Filter by rating (null or > 4.0)
+        handler_temp = DatasetHandler.__new__(DatasetHandler)
+        handler_temp.df = result
+        result = handler_temp.filter_by_rating(min_rating=4.0)
 
-        if max_budget:
+        # 2. Filter for family-friendly destinations
+        handler_temp = DatasetHandler.__new__(DatasetHandler)
+        handler_temp.df = result
+        result = handler_temp.filter_by_family_friendly(has_small_child=has_small_child)
+
+        # USER-SPECIFIED FILTERS (optional)
+        # 3. Filter by destination type if specified
+        if destination_type:
+            handler_temp = DatasetHandler.__new__(DatasetHandler)
+            handler_temp.df = result
+            result = handler_temp.filter_by_type(destination_type)
+
+        # 4. Filter by budget if specified
+        if max_budget is not None:
             result = pd.DataFrame(result)  # Ensure it's a DataFrame
             handler_temp = DatasetHandler.__new__(DatasetHandler)
             handler_temp.df = result
             result = handler_temp.filter_by_budget(max_budget)
 
-        if max_hours:
+        # 5. Filter by duration if specified
+        if max_hours is not None:
             result = pd.DataFrame(result)
             handler_temp = DatasetHandler.__new__(DatasetHandler)
             handler_temp.df = result
