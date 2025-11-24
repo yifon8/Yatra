@@ -254,15 +254,6 @@
                     </select>
                 </div>
 
-                <!-- Row 1, Column 2: Checkbox for small child -->
-                <div class="form-group">
-                    <label for="smallChild">Traveling with Family</label>
-                    <div class="checkbox-group">
-                        <input type="checkbox" id="smallChild" name="smallChild">
-                        <label for="smallChild">Small Child</label>
-                    </div>
-                </div>
-
                 <!-- Row 2, Column 1: Hours input -->
                 <div class="form-group">
                     <label for="hours">Visit Duration (Optional)</label>
@@ -302,7 +293,6 @@
     <script>
         // Get form elements
         const destinationSelect = document.getElementById('destination');
-        const smallChildCheckbox = document.getElementById('smallChild');
         const hoursInput = document.getElementById('hours');
         const budgetInput = document.getElementById('budget');
         const submitBtn = document.getElementById('submitBtn');
@@ -314,9 +304,6 @@
             // Get destination type from dropdown
             const destinationType = destinationSelect.value;
 
-            // Get smallChild checkbox value (true/false)
-            const smallChild = smallChildCheckbox.checked;
-
             // Get duration from hours input (decimal value or null if empty)
             const duration = hoursInput.value ? parseFloat(hoursInput.value) : null;
 
@@ -325,7 +312,6 @@
 
             return {
                 destinationType,
-                smallChild,
                 duration,
                 budget
             };
@@ -444,7 +430,6 @@
         retryBtn.addEventListener('click', () => {
             // Reset form
             destinationSelect.value = '';
-            smallChildCheckbox.checked = false;
             hoursInput.value = '';
             budgetInput.value = '';
 

@@ -46,10 +46,6 @@ class TravelTools:
                         "max_hours": {
                             "type": "number",
                             "description": "Maximum visit duration in hours (can be decimal, e.g., 0.5, 1.5, 8.25)"
-                        },
-                        "has_small_child": {
-                            "type": "boolean",
-                            "description": "Whether traveling with small children (applies stricter family-friendly filtering)"
                         }
                     },
                     "required": []
@@ -120,8 +116,7 @@ class TravelTools:
     def search_destinations_quantitative(self,
                                         destination_type: Optional[str] = None,
                                         max_budget: Optional[float] = None,
-                                        max_hours: Optional[float] = None,
-                                        has_small_child: bool = False) -> Dict[str, Any]:
+                                        max_hours: Optional[float] = None) -> Dict[str, Any]:
         """
         Search destinations using quantitative filters with system-level filtering
 
@@ -133,7 +128,6 @@ class TravelTools:
             destination_type: Type of destination to filter by
             max_budget: Maximum budget in rupees
             max_hours: Maximum duration in hours (can be decimal, e.g., 0.5, 1.5, 8.25)
-            has_small_child: Whether traveling with small children (stricter filtering)
 
         Returns:
             Dictionary with search results
@@ -143,8 +137,7 @@ class TravelTools:
             results_df = self.dataset.search_quantitative(
                 destination_type=destination_type if destination_type else None,
                 max_budget=max_budget,
-                max_hours=max_hours,
-                has_small_child=has_small_child
+                max_hours=max_hours
             )
 
             # Convert to list of dictionaries
@@ -184,8 +177,7 @@ class TravelTools:
                     "system_filters": "Rating >4.0 or null, Family-friendly",
                     "type": destination_type or "all",
                     "max_budget": max_budget or "unlimited",
-                    "max_hours": max_hours or "unlimited",
-                    "has_small_child": has_small_child
+                    "max_hours": max_hours or "unlimited"
                 }
             }
         except Exception as e:

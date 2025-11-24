@@ -30,15 +30,14 @@ If a user specifies a travel time constraint, you should:
 When making recommendations:
 1. Use quantitative filters (budget, visit_duration, type) to narrow down options
 2. Analyze destinations qualitatively for family-friendliness, atmosphere, and suitability
-3. Consider the presence of small children when evaluating destinations
-4. Provide specific, practical recommendations with reasoning
-5. Be warm, helpful, and culturally aware
+3. Provide specific, practical recommendations with reasoning
+4. Be warm, helpful, and culturally aware
 
 Always explain your reasoning and highlight what makes each destination special for families.
 """
 
 
-FAMILY_FRIENDLINESS_PROMPT = """Analyze this destination for family-friendliness, especially for families with small children.
+FAMILY_FRIENDLINESS_PROMPT = """Analyze this destination for family-friendliness.
 
 Destination Details:
 {destination_details}
@@ -48,7 +47,7 @@ Consider:
 - Availability of family amenities (restrooms, food options, rest areas)
 - Activities suitable for children
 - Overall atmosphere (crowded, peaceful, educational, fun)
-- Any potential challenges for families with small children
+- Any potential challenges for families
 
 Provide a family-friendliness score (1-10) and explain your reasoning in 2-3 sentences.
 
@@ -65,7 +64,6 @@ Destination Details:
 
 User Preferences:
 - Destination Type: {destination_type}
-- Has Small Child: {has_small_child}
 - Visit Duration (time available to explore): {hours} hours
 - Budget: ₹{budget}
 
@@ -86,7 +84,6 @@ RECOMMENDATION_PROMPT = """Based on the filtered destinations and analysis, prov
 
 User Request:
 - Destination Type: {destination_type}
-- Has Small Child: {has_small_child}
 - Visit Duration (time to explore destination): {hours} hours
 - Budget: ₹{budget}
 
@@ -124,7 +121,6 @@ def get_family_friendliness_prompt(destination_details: dict) -> str:
 
 def get_destination_analysis_prompt(destination_details: dict,
                                     destination_type: str,
-                                    has_small_child: bool,
                                     hours: int,
                                     budget: float) -> str:
     """Generate prompt for destination analysis"""
@@ -132,14 +128,12 @@ def get_destination_analysis_prompt(destination_details: dict,
     return DESTINATION_ANALYSIS_PROMPT.format(
         destination_details=details_str,
         destination_type=destination_type or "Any",
-        has_small_child="Yes" if has_small_child else "No",
         hours=hours or "Flexible",
         budget=budget or "Flexible"
     )
 
 
 def get_recommendation_prompt(destination_type: str,
-                             has_small_child: bool,
                              hours: int,
                              budget: float,
                              destinations: list) -> str:
@@ -153,7 +147,6 @@ def get_recommendation_prompt(destination_type: str,
 
     return RECOMMENDATION_PROMPT.format(
         destination_type=destination_type or "Any type",
-        has_small_child="Yes" if has_small_child else "No",
         hours=hours or "Flexible",
         budget=budget or "Flexible",
         destinations=dest_str
