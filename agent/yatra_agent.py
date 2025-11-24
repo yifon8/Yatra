@@ -45,7 +45,7 @@ class DestinationSuggester:
 
         # Initialize the model with function calling
         self.model = genai.GenerativeModel(
-            model_name='gemini-1.5-flash-latest',  # or 'gemini-1.5-pro-latest' for better quality
+            model_name='gemini-1.5-flash',  # or 'gemini-1.5-pro' for better quality
             system_instruction=AGENT_SYSTEM_PROMPT
         )
 
