@@ -375,7 +375,7 @@ class DatasetHandler:
         return df.copy()
 
     def _apply_budget_filter_on_df(self, df: pd.DataFrame, max_budget: float) -> pd.DataFrame:
-        """Apply budget filter directly on a DataFrame"""
+        """Apply budget filter directly on a DataFrame - includes destinations with unknown entry fees"""
         possible_columns = ['entrance_fee_in_inr', 'budget', 'cost', 'price',
                           'estimated_cost', 'average_cost', 'budget_per_person']
 
@@ -387,8 +387,8 @@ class DatasetHandler:
 
         if budget_column:
             budget_values = pd.to_numeric(df[budget_column], errors='coerce')
-            # Only include destinations where entrance fee is known AND within budget
-            mask = budget_values <= max_budget
+            # Include destinations where entrance fee is within budget OR unknown (null/NaN)
+            mask = (budget_values <= max_budget) | budget_values.isna()
             return df[mask].copy()
 
         return df.copy()

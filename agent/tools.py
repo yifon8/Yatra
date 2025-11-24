@@ -150,6 +150,32 @@ class TravelTools:
             # Convert to list of dictionaries
             destinations = self.dataset.to_dict_list(results_df)
 
+            # Add note to destinations with unknown entry fees
+            for dest in destinations:
+                entry_fee_columns = ['entrance_fee_in_inr', 'budget', 'cost', 'price',
+                                   'estimated_cost', 'average_cost', 'budget_per_person']
+
+                # Check if entry fee is unknown (empty string or missing)
+                has_unknown_fee = True
+                for col in entry_fee_columns:
+                    if col in dest and dest[col] not in ['', None]:
+                        try:
+                            # Try to convert to float - if successful and not NaN, fee is known
+                            fee_value = float(dest[col])
+                            if not (fee_value != fee_value):  # Check for NaN (NaN != NaN is True)
+                                has_unknown_fee = False
+                                break
+                        except (ValueError, TypeError):
+                            continue
+
+                # Add note to description if entry fee is unknown
+                if has_unknown_fee:
+                    description = dest.get('description', '')
+                    if description and description != '':
+                        dest['description'] = f"{description} [Note: Entry fee for this destination is unknown]"
+                    else:
+                        dest['description'] = "[Note: Entry fee for this destination is unknown]"
+
             return {
                 "success": True,
                 "count": len(destinations),
