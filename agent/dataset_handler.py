@@ -387,7 +387,8 @@ class DatasetHandler:
 
         if budget_column:
             budget_values = pd.to_numeric(df[budget_column], errors='coerce')
-            mask = (budget_values <= max_budget) | budget_values.isna()
+            # Only include destinations where entrance fee is known AND within budget
+            mask = budget_values <= max_budget
             return df[mask].copy()
 
         return df.copy()
