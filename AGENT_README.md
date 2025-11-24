@@ -252,13 +252,12 @@ Edit `agent/destination_suggester.py`:
 
 ```python
 self.model = genai.GenerativeModel(
-    model_name='gemini-1.5-pro',  # or 'gemini-1.5-flash'
+    model_name='gemini-2.5-flash-lite',
     system_instruction=AGENT_SYSTEM_PROMPT
 )
 ```
 
-- `gemini-1.5-flash`: Faster, cheaper
-- `gemini-1.5-pro`: More capable, better analysis
+Using `gemini-2.5-flash-lite` for optimal performance and cost.
 
 ## Evaluation
 
