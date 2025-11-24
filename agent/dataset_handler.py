@@ -271,37 +271,148 @@ class DatasetHandler:
 
         # SYSTEM-LEVEL FILTERS (always applied)
         # 1. Filter by rating (null or > 4.0)
-        handler_temp = DatasetHandler.__new__(DatasetHandler)
-        handler_temp.df = result
-        result = handler_temp.filter_by_rating(min_rating=4.0)
+        result = self._apply_rating_filter_on_df(result, min_rating=4.0)
 
         # 2. Filter for family-friendly destinations
-        handler_temp = DatasetHandler.__new__(DatasetHandler)
-        handler_temp.df = result
-        result = handler_temp.filter_by_family_friendly(has_small_child=has_small_child)
+        result = self._apply_family_filter_on_df(result, has_small_child=has_small_child)
 
         # USER-SPECIFIED FILTERS (optional)
         # 3. Filter by destination type if specified
         if destination_type:
-            handler_temp = DatasetHandler.__new__(DatasetHandler)
-            handler_temp.df = result
-            result = handler_temp.filter_by_type(destination_type)
+            result = self._apply_type_filter_on_df(result, destination_type)
 
         # 4. Filter by budget if specified
         if max_budget is not None:
-            result = pd.DataFrame(result)  # Ensure it's a DataFrame
-            handler_temp = DatasetHandler.__new__(DatasetHandler)
-            handler_temp.df = result
-            result = handler_temp.filter_by_budget(max_budget)
+            result = self._apply_budget_filter_on_df(result, max_budget)
 
         # 5. Filter by duration if specified
         if max_hours is not None:
-            result = pd.DataFrame(result)
-            handler_temp = DatasetHandler.__new__(DatasetHandler)
-            handler_temp.df = result
-            result = handler_temp.filter_by_duration(max_hours)
+            result = self._apply_duration_filter_on_df(result, max_hours)
 
         return result
+
+    def _apply_rating_filter_on_df(self, df: pd.DataFrame, min_rating: float = 4.0) -> pd.DataFrame:
+        """Apply rating filter directly on a DataFrame"""
+        possible_columns = ['rating', 'google_review_rating', 'review_rating',
+                          'user_rating', 'average_rating']
+
+        rating_column = None
+        for col in possible_columns:
+            if col in df.columns:
+                rating_column = col
+                break
+
+        if rating_column:
+            rating_values = pd.to_numeric(df[rating_column], errors='coerce')
+            mask = rating_values.isna() | (rating_values > min_rating)
+            return df[mask].copy()
+
+        return df.copy()
+
+    def _apply_family_filter_on_df(self, df: pd.DataFrame, has_small_child: bool = False) -> pd.DataFrame:
+        """Apply family-friendly filter directly on a DataFrame"""
+        family_friendly_types = [
+            'park', 'botanical garden', 'botanical', 'garden', 'zoo',
+            'museum', 'science', 'aquarium', 'amusement park',
+            'theme park', 'lake', 'beach', 'palace', 'fort',
+            'temple', 'church', 'gurudwara', 'monument', 'memorial',
+            'waterfall', 'valley', 'viewpoint', 'scenic', 'nature',
+            'island', 'mall', 'shopping'
+        ]
+
+        if has_small_child:
+            exclude_for_small_children = [
+                'trekking', 'trek', 'adventure sport', 'paragliding',
+                'ski resort', 'cricket ground', 'race track',
+                'national park', 'wildlife sanctuary', 'hill'
+            ]
+        else:
+            exclude_for_small_children = []
+
+        type_column = None
+        possible_type_columns = ['type', 'category', 'destination_type', 'place_type']
+
+        for col in possible_type_columns:
+            if col in df.columns:
+                type_column = col
+                break
+
+        if type_column:
+            type_lower = df[type_column].str.lower()
+            family_mask = type_lower.str.contains('|'.join(family_friendly_types),
+                                                  case=False, na=False, regex=True)
+
+            if exclude_for_small_children:
+                exclude_mask = type_lower.str.contains('|'.join(exclude_for_small_children),
+                                                       case=False, na=False, regex=True)
+                family_mask = family_mask & ~exclude_mask
+
+            return df[family_mask].copy()
+
+        return df.copy()
+
+    def _apply_type_filter_on_df(self, df: pd.DataFrame, destination_type: str) -> pd.DataFrame:
+        """Apply destination type filter directly on a DataFrame"""
+        type_columns = ['type', 'category', 'destination_type', 'place_type']
+
+        for col in type_columns:
+            if col in df.columns:
+                mask = df[col].str.lower().str.contains(
+                    destination_type.lower(),
+                    case=False,
+                    na=False
+                )
+                return df[mask].copy()
+
+        if 'description' in df.columns:
+            mask = df['description'].str.lower().str.contains(
+                destination_type.lower(),
+                case=False,
+                na=False
+            )
+            return df[mask].copy()
+
+        return df.copy()
+
+    def _apply_budget_filter_on_df(self, df: pd.DataFrame, max_budget: float) -> pd.DataFrame:
+        """Apply budget filter directly on a DataFrame"""
+        possible_columns = ['entrance_fee_in_inr', 'budget', 'cost', 'price',
+                          'estimated_cost', 'average_cost', 'budget_per_person']
+
+        budget_column = None
+        for col in possible_columns:
+            if col in df.columns:
+                budget_column = col
+                break
+
+        if budget_column:
+            budget_values = pd.to_numeric(df[budget_column], errors='coerce')
+            mask = (budget_values <= max_budget) | budget_values.isna()
+            return df[mask].copy()
+
+        return df.copy()
+
+    def _apply_duration_filter_on_df(self, df: pd.DataFrame, max_hours: float) -> pd.DataFrame:
+        """Apply duration filter directly on a DataFrame"""
+        possible_columns = ['duration', 'recommended_duration', 'visit_duration',
+                          'time_required', 'hours', 'days', 'time_needed_to_visit_in_hrs']
+
+        duration_column = None
+        for col in possible_columns:
+            if col in df.columns:
+                duration_column = col
+                break
+
+        if duration_column:
+            duration_values = pd.to_numeric(df[duration_column], errors='coerce')
+
+            if 'day' in duration_column.lower():
+                duration_values = duration_values * 24
+
+            mask = (duration_values <= max_hours) | duration_values.isna()
+            return df[mask].copy()
+
+        return df.copy()
 
     def get_destination_details(self, destination_name: str) -> Dict[str, Any]:
         """
