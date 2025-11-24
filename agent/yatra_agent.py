@@ -155,6 +155,17 @@ class DestinationSuggester:
         conversation_history = []
 
         while iteration < max_iterations:
+            # Check if response has candidates and parts
+            if not response.candidates or not response.candidates[0].content.parts:
+                # No valid response from the model
+                return {
+                    'success': False,
+                    'error': 'There are no matches within our dataset.',
+                    'query': query,
+                    'tools_used': conversation_history,
+                    'iterations': iteration
+                }
+
             # Check if model wants to use tools
             if response.candidates[0].content.parts[0].function_call:
                 # Extract function call
@@ -253,6 +264,10 @@ class DestinationSuggester:
         iteration = 0
 
         while iteration < max_iterations:
+            # Check if response has candidates and parts
+            if not response.candidates or not response.candidates[0].content.parts:
+                return "I apologize, but I couldn't find any relevant information to answer your question."
+
             if response.candidates[0].content.parts[0].function_call:
                 function_call = response.candidates[0].content.parts[0].function_call
                 tool_name = function_call.name
