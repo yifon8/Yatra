@@ -42,7 +42,7 @@ def test_filtering():
 
     # Test family-friendly filter
     print("\n3. Testing family-friendly filter...")
-    filtered = handler.filter_by_family_friendly(has_small_child=False)
+    filtered = handler.filter_by_family_friendly()
     print(f"   Family-friendly destinations: {len(filtered)}")
 
     # Show some examples
@@ -51,18 +51,12 @@ def test_filtering():
         for i, row in filtered.head(5).iterrows():
             print(f"   - {row.get('name', 'Unknown')} ({row.get('type', 'Unknown type')})")
 
-    # Test family-friendly with small children
-    print("\n4. Testing family-friendly filter WITH small children...")
-    filtered = handler.filter_by_family_friendly(has_small_child=True)
-    print(f"   Destinations suitable for small children: {len(filtered)}")
-
     # Test combined search
-    print("\n5. Testing combined search (beach, budget 100, 2 hours)...")
+    print("\n4. Testing combined search (beach, budget 100, 2 hours)...")
     filtered = handler.search_quantitative(
         destination_type="beach",
         max_budget=100,
-        max_hours=2,
-        has_small_child=False
+        max_hours=2
     )
     print(f"   Matching destinations: {len(filtered)}")
 

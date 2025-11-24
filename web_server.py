@@ -60,7 +60,6 @@ def suggest_destinations():
     Expected JSON body:
     {
         "destinationType": "beach|mountain|heritage|wildlife",
-        "smallChild": true|false,
         "duration": float (hours, optional) - e.g., 0.5, 1.5, 8.25,
         "budget": integer (Rupees, optional) - 0 allowed for free destinations
     }
@@ -77,7 +76,6 @@ def suggest_destinations():
 
         # Extract parameters
         destination_type = data.get('destinationType')
-        small_child = data.get('smallChild', False)
         duration = data.get('duration')
         budget = data.get('budget')
 
@@ -105,14 +103,12 @@ def suggest_destinations():
         # Log the request
         print(f"\n📝 Received request:")
         print(f"   Destination Type: {destination_type}")
-        print(f"   Small Child: {small_child}")
         print(f"   Duration: {duration} hours" if duration is not None else "   Duration: Not specified")
         print(f"   Budget: ₹{budget:,}" if budget is not None else "   Budget: Not specified")
 
         # Call the agent
         result = agent.suggest_destinations(
             destination_type=destination_type,
-            has_small_child=small_child,
             hours=duration,
             budget=budget
         )

@@ -188,12 +188,9 @@ class DatasetHandler:
         # If no rating column found, return all destinations
         return self.df
 
-    def filter_by_family_friendly(self, has_small_child: bool = False) -> pd.DataFrame:
+    def filter_by_family_friendly(self) -> pd.DataFrame:
         """
         Filter destinations for family-friendliness based on type and significance
-
-        Args:
-            has_small_child: If True, apply stricter filtering for small children
 
         Returns:
             Filtered DataFrame with family-friendly destinations
@@ -207,16 +204,6 @@ class DatasetHandler:
             'waterfall', 'valley', 'viewpoint', 'scenic', 'nature',
             'island', 'mall', 'shopping'
         ]
-
-        # Less suitable for small children (stricter filter)
-        if has_small_child:
-            exclude_for_small_children = [
-                'trekking', 'trek', 'adventure sport', 'paragliding',
-                'ski resort', 'cricket ground', 'race track',
-                'national park', 'wildlife sanctuary', 'hill'
-            ]
-        else:
-            exclude_for_small_children = []
 
         # Check if type column exists
         type_column = None
@@ -235,12 +222,6 @@ class DatasetHandler:
             family_mask = type_lower.str.contains('|'.join(family_friendly_types),
                                                   case=False, na=False, regex=True)
 
-            # Exclude types not suitable for small children if specified
-            if exclude_for_small_children:
-                exclude_mask = type_lower.str.contains('|'.join(exclude_for_small_children),
-                                                       case=False, na=False, regex=True)
-                family_mask = family_mask & ~exclude_mask
-
             return self.df[family_mask]
 
         # If no type column found, return all destinations
@@ -249,8 +230,7 @@ class DatasetHandler:
     def search_quantitative(self,
                           destination_type: Optional[str] = None,
                           max_budget: Optional[float] = None,
-                          max_hours: Optional[float] = None,
-                          has_small_child: bool = False) -> pd.DataFrame:
+                          max_hours: Optional[float] = None) -> pd.DataFrame:
         """
         Perform combined quantitative search with system-level filters
 
@@ -262,7 +242,6 @@ class DatasetHandler:
             destination_type: Type of destination
             max_budget: Maximum budget
             max_hours: Maximum duration in hours (can be decimal, e.g., 0.5, 1.5, 8.25)
-            has_small_child: If True, apply stricter family-friendly filtering
 
         Returns:
             Filtered DataFrame matching all criteria
@@ -274,7 +253,7 @@ class DatasetHandler:
         result = self._apply_rating_filter_on_df(result, min_rating=4.0)
 
         # 2. Filter for family-friendly destinations
-        result = self._apply_family_filter_on_df(result, has_small_child=has_small_child)
+        result = self._apply_family_filter_on_df(result)
 
         # USER-SPECIFIED FILTERS (optional)
         # 3. Filter by destination type if specified
@@ -309,7 +288,7 @@ class DatasetHandler:
 
         return df.copy()
 
-    def _apply_family_filter_on_df(self, df: pd.DataFrame, has_small_child: bool = False) -> pd.DataFrame:
+    def _apply_family_filter_on_df(self, df: pd.DataFrame) -> pd.DataFrame:
         """Apply family-friendly filter directly on a DataFrame"""
         family_friendly_types = [
             'park', 'botanical garden', 'botanical', 'garden', 'zoo',
@@ -319,15 +298,6 @@ class DatasetHandler:
             'waterfall', 'valley', 'viewpoint', 'scenic', 'nature',
             'island', 'mall', 'shopping'
         ]
-
-        if has_small_child:
-            exclude_for_small_children = [
-                'trekking', 'trek', 'adventure sport', 'paragliding',
-                'ski resort', 'cricket ground', 'race track',
-                'national park', 'wildlife sanctuary', 'hill'
-            ]
-        else:
-            exclude_for_small_children = []
 
         type_column = None
         possible_type_columns = ['type', 'category', 'destination_type', 'place_type']
@@ -341,11 +311,6 @@ class DatasetHandler:
             type_lower = df[type_column].str.lower()
             family_mask = type_lower.str.contains('|'.join(family_friendly_types),
                                                   case=False, na=False, regex=True)
-
-            if exclude_for_small_children:
-                exclude_mask = type_lower.str.contains('|'.join(exclude_for_small_children),
-                                                       case=False, na=False, regex=True)
-                family_mask = family_mask & ~exclude_mask
 
             return df[family_mask].copy()
 

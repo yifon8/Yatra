@@ -67,19 +67,14 @@ def interactive_mode(agent: DestinationSuggester):
     type_choice = input("\nYour choice (a/b/c/d/e): ").lower().strip()
     destination_type = type_map.get(type_choice)
 
-    # Small child
-    print("\n2. Are you traveling with a small child?")
-    child_choice = input("   (yes/no): ").lower().strip()
-    has_small_child = child_choice.startswith('y')
-
     # Duration
-    print("\n3. How many hours do you have for the visit?")
+    print("\n2. How many hours do you have for the visit?")
     print("   (You can enter decimal values like 0.5, 1.5, 8.25)")
     hours_input = input("   Hours (or press Enter to skip): ").strip()
     hours = float(hours_input) if hours_input else None
 
     # Budget
-    print("\n4. What is your budget in Indian Rupees?")
+    print("\n3. What is your budget in Indian Rupees?")
     budget_input = input("   Budget ₹ (or press Enter to skip): ").strip()
     budget = float(budget_input) if budget_input else None
 
@@ -89,7 +84,6 @@ def interactive_mode(agent: DestinationSuggester):
     try:
         result = agent.suggest_destinations(
             destination_type=destination_type,
-            has_small_child=has_small_child,
             hours=hours,
             budget=budget
         )
@@ -108,7 +102,6 @@ def command_line_mode(agent: DestinationSuggester, args):
     try:
         result = agent.suggest_destinations(
             destination_type=args.type,
-            has_small_child=args.child,
             hours=args.hours,
             budget=args.budget
         )
@@ -179,12 +172,6 @@ Examples:
         '--type',
         choices=['beach', 'mountain', 'heritage', 'wildlife'],
         help='Type of destination'
-    )
-
-    parser.add_argument(
-        '--child',
-        action='store_true',
-        help='Traveling with a small child'
     )
 
     parser.add_argument(

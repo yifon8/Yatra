@@ -128,7 +128,6 @@ class DestinationSuggester:
 
     def suggest_destinations(self,
                            destination_type: Optional[str] = None,
-                           has_small_child: bool = False,
                            hours: Optional[float] = None,
                            budget: Optional[float] = None,
                            max_iterations: int = 5) -> Dict[str, Any]:
@@ -137,7 +136,6 @@ class DestinationSuggester:
 
         Args:
             destination_type: Type of destination (beach, mountain, heritage, wildlife)
-            has_small_child: Whether traveling with a small child
             hours: Available time in hours (can be decimal, e.g., 0.5, 1.5, 8.25)
             budget: Budget in rupees
             max_iterations: Maximum tool calling iterations
@@ -146,7 +144,7 @@ class DestinationSuggester:
             Dictionary with recommendations and reasoning
         """
         # Create the user query
-        query = self._create_query(destination_type, has_small_child, hours, budget)
+        query = self._create_query(destination_type, hours, budget)
 
         print(f"\n🔍 Processing query: {query}\n")
 
@@ -307,7 +305,6 @@ class DestinationSuggester:
 
     def _create_query(self,
                      destination_type: Optional[str],
-                     has_small_child: bool,
                      hours: Optional[float],
                      budget: Optional[float]) -> str:
         """Create a natural language query from user parameters"""
@@ -315,9 +312,6 @@ class DestinationSuggester:
 
         if destination_type:
             query_parts.append(f"focusing on {destination_type} destinations")
-
-        if has_small_child:
-            query_parts.append("that are suitable for families with small children")
 
         if hours is not None:
             # Format hours nicely (remove .0 for whole numbers)
@@ -400,14 +394,12 @@ class DestinationSuggester:
         return response.text
 
     def analyze_destination(self,
-                          destination_name: str,
-                          has_small_child: bool = False) -> str:
+                          destination_name: str) -> str:
         """
         Get detailed analysis of a specific destination
 
         Args:
             destination_name: Name of the destination
-            has_small_child: Whether considering for families with small children
 
         Returns:
             Detailed analysis text
@@ -418,7 +410,7 @@ class DestinationSuggester:
             return f"Destination '{destination_name}' not found in the dataset."
 
         # Use LLM to analyze
-        prompt = f"""Analyze this Indian travel destination for families{"with small children" if has_small_child else ""}:
+        prompt = f"""Analyze this Indian travel destination for families:
 
 Destination: {destination_name}
 
@@ -427,7 +419,7 @@ Details:
 
 Provide:
 1. Overview and highlights
-2. Why it's good (or not) for families{"with small children" if has_small_child else ""}
+2. Why it's good (or not) for families
 3. Practical tips and recommendations
 4. Best time to visit
 """
