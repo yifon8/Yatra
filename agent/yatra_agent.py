@@ -224,8 +224,11 @@ class DestinationSuggester:
             hours_str = f"{hours:g}"
             query_parts.append(f"where we can visit within {hours_str} hours")
 
-        if budget:
-            query_parts.append(f"with a budget of around ₹{budget:,.0f}")
+        if budget is not None:
+            if budget == 0:
+                query_parts.append("preferably free destinations (no cost)")
+            else:
+                query_parts.append(f"with a budget of around ₹{budget:,.0f}")
 
         query = " ".join(query_parts) + "."
         query += "\n\nPlease use the available tools to search the dataset and provide me with your top 3 recommendations with reasoning."

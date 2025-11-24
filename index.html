@@ -274,9 +274,9 @@
 
                 <!-- Row 2, Column 2: Budget input -->
                 <div class="form-group">
-                    <label for="budget">Budget</label>
+                    <label for="budget">Budget (Optional)</label>
                     <div class="input-with-unit">
-                        <input type="number" id="budget" name="budget" min="1" placeholder="Enter amount">
+                        <input type="number" id="budget" name="budget" min="0" placeholder="Enter amount">
                         <span class="unit">Rupees</span>
                     </div>
                 </div>
@@ -320,8 +320,8 @@
             // Get duration from hours input (decimal value or null if empty)
             const duration = hoursInput.value ? parseFloat(hoursInput.value) : null;
 
-            // Get budget from budget input (positive integer)
-            const budget = parseInt(budgetInput.value) || 0;
+            // Get budget from budget input (positive integer or null if empty)
+            const budget = budgetInput.value ? parseInt(budgetInput.value) : null;
 
             return {
                 destinationType,
@@ -344,8 +344,9 @@
                 errors.push('Visit duration must be greater than 0 hours (e.g., 0.5, 1.5, 8.25)');
             }
 
-            if (data.budget <= 0) {
-                errors.push('Please enter a valid budget (positive amount in Rupees)');
+            // Budget is optional, but if provided, must be >= 0 (0 allowed for free destinations)
+            if (data.budget !== null && data.budget < 0) {
+                errors.push('Budget cannot be negative');
             }
 
             return errors;
