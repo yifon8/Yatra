@@ -13,8 +13,22 @@ IMPORTANT FILTERING REQUIREMENTS:
 - All destinations MUST have either no rating (null) OR a rating greater than 4.0 out of 5.0
 - These are system-level requirements that are automatically applied to all searches
 
+CRITICAL: UNDERSTANDING DURATION
+The dataset contains "VISIT DURATION" - the time needed to explore each destination (e.g., 2 hours at India Gate).
+The dataset does NOT contain "TRAVEL DURATION" - how long it takes to reach the destination from your location.
+
+When users mention travel time constraints (e.g., "within 2 hours travel"), they are asking about:
+- How far they can travel from their current location
+- This information is NOT available in the dataset
+- You CANNOT filter destinations by travel time/distance from user's location
+
+If a user specifies a travel time constraint, you should:
+1. Explain that the dataset doesn't include travel time information
+2. Ask for the user's starting location or suggest popular starting points
+3. Recommend destinations and note that they should verify travel time separately
+
 When making recommendations:
-1. Use quantitative filters (budget, duration, type) to narrow down options
+1. Use quantitative filters (budget, visit_duration, type) to narrow down options
 2. Analyze destinations qualitatively for family-friendliness, atmosphere, and suitability
 3. Consider the presence of small children when evaluating destinations
 4. Provide specific, practical recommendations with reasoning
@@ -52,8 +66,11 @@ Destination Details:
 User Preferences:
 - Destination Type: {destination_type}
 - Has Small Child: {has_small_child}
-- Available Time: {hours} hours
+- Visit Duration (time available to explore): {hours} hours
 - Budget: ₹{budget}
+
+Note: Visit duration refers to how much time the user has to explore the destination,
+NOT how long it takes to travel there.
 
 Evaluate:
 1. How well does this destination match the user's preferences?
@@ -70,8 +87,10 @@ RECOMMENDATION_PROMPT = """Based on the filtered destinations and analysis, prov
 User Request:
 - Destination Type: {destination_type}
 - Has Small Child: {has_small_child}
-- Available Time: {hours} hours
+- Visit Duration (time to explore destination): {hours} hours
 - Budget: ₹{budget}
+
+Note: Visit duration is the time available to explore the destination, NOT travel time to reach it.
 
 Candidate Destinations:
 {destinations}
