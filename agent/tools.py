@@ -36,8 +36,8 @@ class TravelTools:
                     "properties": {
                         "destination_type": {
                             "type": "string",
-                            "description": "Type of destination: 'beach', 'mountain', 'heritage', 'wildlife', or leave empty for all types",
-                            "enum": ["beach", "mountain", "heritage", "wildlife", ""]
+                            "description": "Type of destination: 'beach', 'mountain', 'heritage', 'wildlife'. Optional - omit this parameter to search all types",
+                            "enum": ["beach", "mountain", "heritage", "wildlife"]
                         },
                         "max_budget": {
                             "type": "number",
