@@ -384,21 +384,32 @@
                     body: JSON.stringify(formData)
                 });
 
-                if (!response.ok) {
-                    throw new Error(`Server error: ${response.status}`);
-                }
-
+                // Parse the JSON response regardless of status
                 const result = await response.json();
 
-                // Display results
-                if (result.success) {
+                // Handle different response scenarios
+                if (response.ok && result.success) {
+                    // Success case - display recommendations
                     displayRecommendations(result.recommendations);
+                } else if (result.error) {
+                    // Server returned a specific error message (400 or other error)
+                    resultsContent.innerHTML = `
+                        <p style="color: #d97531;">
+                            ❌ ${result.error}
+                        </p>
+                    `;
                 } else {
-                    resultsContent.innerHTML = `<p style="color: #d97531;">Error: ${result.error}</p>`;
+                    // Unexpected error format
+                    resultsContent.innerHTML = `
+                        <p style="color: #d97531;">
+                            ❌ An unexpected error occurred. Server returned status: ${response.status}
+                        </p>
+                    `;
                 }
 
             } catch (error) {
                 console.error('Error:', error);
+                // Network error or JSON parsing error
                 resultsContent.innerHTML = `
                     <p style="color: #d97531;">
                         ❌ Failed to get recommendations. Please make sure the server is running.
