@@ -30,7 +30,7 @@ class TravelTools:
         return [
             {
                 "name": "search_destinations_quantitative",
-                "description": "Search for destinations using quantitative filters like budget, duration, and type. Returns a list of matching destinations.",
+                "description": "Search for destinations using quantitative filters like budget, duration, and type. SYSTEM FILTERS: Automatically filters for family-friendly destinations with rating null or >4.0. Returns a list of matching destinations.",
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -46,6 +46,10 @@ class TravelTools:
                         "max_hours": {
                             "type": "number",
                             "description": "Maximum visit duration in hours (can be decimal, e.g., 0.5, 1.5, 8.25)"
+                        },
+                        "has_small_child": {
+                            "type": "boolean",
+                            "description": "Whether traveling with small children (applies stricter family-friendly filtering)"
                         }
                     },
                     "required": []
@@ -116,24 +120,31 @@ class TravelTools:
     def search_destinations_quantitative(self,
                                         destination_type: Optional[str] = None,
                                         max_budget: Optional[float] = None,
-                                        max_hours: Optional[float] = None) -> Dict[str, Any]:
+                                        max_hours: Optional[float] = None,
+                                        has_small_child: bool = False) -> Dict[str, Any]:
         """
-        Search destinations using quantitative filters
+        Search destinations using quantitative filters with system-level filtering
+
+        SYSTEM FILTERS (always applied):
+        - Rating must be null or > 4.0
+        - Destinations must be family-friendly
 
         Args:
             destination_type: Type of destination to filter by
             max_budget: Maximum budget in rupees
             max_hours: Maximum duration in hours (can be decimal, e.g., 0.5, 1.5, 8.25)
+            has_small_child: Whether traveling with small children (stricter filtering)
 
         Returns:
             Dictionary with search results
         """
         try:
-            # Perform quantitative search
+            # Perform quantitative search with system-level filters
             results_df = self.dataset.search_quantitative(
                 destination_type=destination_type if destination_type else None,
                 max_budget=max_budget,
-                max_hours=max_hours
+                max_hours=max_hours,
+                has_small_child=has_small_child
             )
 
             # Convert to list of dictionaries
@@ -144,9 +155,11 @@ class TravelTools:
                 "count": len(destinations),
                 "destinations": destinations[:20],  # Limit to top 20 for context
                 "filters_applied": {
+                    "system_filters": "Rating >4.0 or null, Family-friendly",
                     "type": destination_type or "all",
                     "max_budget": max_budget or "unlimited",
-                    "max_hours": max_hours or "unlimited"
+                    "max_hours": max_hours or "unlimited",
+                    "has_small_child": has_small_child
                 }
             }
         except Exception as e:
