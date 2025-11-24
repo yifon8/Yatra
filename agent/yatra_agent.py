@@ -7,6 +7,8 @@ import google.generativeai as genai
 from typing import Dict, Any, List, Optional
 import os
 import json
+import logging
+import time
 
 from .dataset_handler import DatasetHandler
 from .tools import TravelTools, format_tool_result
@@ -15,6 +17,9 @@ from .system_prompts import (
     get_recommendation_prompt,
     get_destination_analysis_prompt
 )
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 
 class DestinationSuggester:
@@ -44,9 +49,13 @@ class DestinationSuggester:
         self.tools = TravelTools(self.dataset)
 
         # Initialize the model with function calling
+        # Set temperature=0 for deterministic, reproducible responses
         self.model = genai.GenerativeModel(
             model_name='gemini-2.5-flash-lite',
-            system_instruction=AGENT_SYSTEM_PROMPT
+            system_instruction=AGENT_SYSTEM_PROMPT,
+            generation_config=genai.GenerationConfig(
+                temperature=0.0
+            )
         )
 
         # Convert tool declarations to Google ADK format
@@ -144,11 +153,49 @@ class DestinationSuggester:
         # Start chat session with tools
         chat = self.model.start_chat()
 
-        # Send initial query with tools
-        response = chat.send_message(
-            query,
-            tools=self.tool_config
-        )
+        # Send initial query with tools - retry logic for empty responses
+        max_retries = 3
+        retry_delay = 1  # seconds
+        response = None
+
+        for attempt in range(max_retries):
+            try:
+                response = chat.send_message(
+                    query,
+                    tools=self.tool_config
+                )
+                # Check if we got a valid response
+                if response.candidates and response.candidates[0].content.parts:
+                    break
+                else:
+                    logger.warning(f"Empty response from Gemini API (attempt {attempt + 1}/{max_retries})")
+                    if attempt < max_retries - 1:
+                        time.sleep(retry_delay)
+                        retry_delay *= 2  # exponential backoff
+            except Exception as e:
+                logger.error(f"Error calling Gemini API (attempt {attempt + 1}/{max_retries}): {e}")
+                if attempt < max_retries - 1:
+                    time.sleep(retry_delay)
+                    retry_delay *= 2
+                else:
+                    return {
+                        'success': False,
+                        'error': f'API error: {str(e)}',
+                        'query': query,
+                        'tools_used': [],
+                        'iterations': 0
+                    }
+
+        # Check if we ever got a valid response after all retries
+        if not response or not response.candidates or not response.candidates[0].content.parts:
+            logger.error("Failed to get valid response from Gemini API after all retries")
+            return {
+                'success': False,
+                'error': 'Unable to get a response from the AI service. Please try again.',
+                'query': query,
+                'tools_used': [],
+                'iterations': 0
+            }
 
         # Handle tool calling loop
         iteration = 0
@@ -157,14 +204,26 @@ class DestinationSuggester:
         while iteration < max_iterations:
             # Check if response has candidates and parts
             if not response.candidates or not response.candidates[0].content.parts:
-                # No valid response from the model
-                return {
-                    'success': False,
-                    'error': 'There are no matches within our dataset.',
-                    'query': query,
-                    'tools_used': conversation_history,
-                    'iterations': iteration
-                }
+                logger.warning(f"Empty response during tool calling loop at iteration {iteration}")
+                # This might indicate the search found no results
+                # Check if we used the search tool
+                search_used = any(h['tool'] == 'search_destinations_quantitative' for h in conversation_history)
+                if search_used:
+                    return {
+                        'success': False,
+                        'error': 'No destinations found matching your criteria. Try adjusting your filters.',
+                        'query': query,
+                        'tools_used': conversation_history,
+                        'iterations': iteration
+                    }
+                else:
+                    return {
+                        'success': False,
+                        'error': 'Unable to complete your request. Please try again.',
+                        'query': query,
+                        'tools_used': conversation_history,
+                        'iterations': iteration
+                    }
 
             # Check if model wants to use tools
             if response.candidates[0].content.parts[0].function_call:
@@ -177,9 +236,19 @@ class DestinationSuggester:
                 print(f"   Parameters: {json.dumps(tool_params, indent=2)}")
 
                 # Execute the tool
-                tool_result = self.tools.execute_tool(tool_name, tool_params)
-
-                print(f"✓ Tool executed successfully\n")
+                try:
+                    tool_result = self.tools.execute_tool(tool_name, tool_params)
+                    print(f"✓ Tool executed successfully\n")
+                    logger.info(f"Tool {tool_name} executed with {len(tool_result.get('destinations', []))} results")
+                except Exception as e:
+                    logger.error(f"Error executing tool {tool_name}: {e}")
+                    return {
+                        'success': False,
+                        'error': f'Error executing search: {str(e)}',
+                        'query': query,
+                        'tools_used': conversation_history,
+                        'iterations': iteration
+                    }
 
                 # Format result for the model
                 function_response = genai.protos.Part(
@@ -189,8 +258,28 @@ class DestinationSuggester:
                     )
                 )
 
-                # Send tool result back to model
-                response = chat.send_message(function_response)
+                # Send tool result back to model with retry logic
+                for attempt in range(max_retries):
+                    try:
+                        response = chat.send_message(function_response)
+                        if response.candidates and response.candidates[0].content.parts:
+                            break
+                        else:
+                            logger.warning(f"Empty response after tool call (attempt {attempt + 1}/{max_retries})")
+                            if attempt < max_retries - 1:
+                                time.sleep(1)
+                    except Exception as e:
+                        logger.error(f"Error sending tool result to Gemini (attempt {attempt + 1}/{max_retries}): {e}")
+                        if attempt < max_retries - 1:
+                            time.sleep(1)
+                        else:
+                            return {
+                                'success': False,
+                                'error': f'API error after tool execution: {str(e)}',
+                                'query': query,
+                                'tools_used': conversation_history,
+                                'iterations': iteration
+                            }
 
                 conversation_history.append({
                     'tool': tool_name,
@@ -257,7 +346,27 @@ class DestinationSuggester:
             Agent response
         """
         chat = self.model.start_chat()
-        response = chat.send_message(message, tools=self.tool_config)
+
+        # Send message with retry logic
+        max_retries = 3
+        response = None
+
+        for attempt in range(max_retries):
+            try:
+                response = chat.send_message(message, tools=self.tool_config)
+                if response.candidates and response.candidates[0].content.parts:
+                    break
+                else:
+                    logger.warning(f"Empty response in chat (attempt {attempt + 1}/{max_retries})")
+                    if attempt < max_retries - 1:
+                        time.sleep(1)
+            except Exception as e:
+                logger.error(f"Error in chat (attempt {attempt + 1}/{max_retries}): {e}")
+                if attempt < max_retries - 1:
+                    time.sleep(1)
+
+        if not response or not response.candidates or not response.candidates[0].content.parts:
+            return "I apologize, but I'm having trouble connecting to the AI service. Please try again."
 
         # Handle tool calls if any
         max_iterations = 5
@@ -266,6 +375,7 @@ class DestinationSuggester:
         while iteration < max_iterations:
             # Check if response has candidates and parts
             if not response.candidates or not response.candidates[0].content.parts:
+                logger.warning(f"Empty response during chat tool calling at iteration {iteration}")
                 return "I apologize, but I couldn't find any relevant information to answer your question."
 
             if response.candidates[0].content.parts[0].function_call:
