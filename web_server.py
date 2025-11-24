@@ -61,7 +61,7 @@ def suggest_destinations():
     {
         "destinationType": "beach|mountain|heritage|wildlife",
         "smallChild": true|false,
-        "duration": integer (hours),
+        "duration": float (hours, optional) - e.g., 0.5, 1.5, 8.25,
         "budget": integer (Rupees)
     }
     """
@@ -88,10 +88,11 @@ def suggest_destinations():
                 'error': 'Destination type is required'
             }), 400
 
-        if not duration or duration <= 0:
+        # Duration is optional, but if provided, must be > 0
+        if duration is not None and duration <= 0:
             return jsonify({
                 'success': False,
-                'error': 'Valid duration (positive hours) is required'
+                'error': 'Duration must be greater than 0 hours (e.g., 0.5, 1.5, 8.25)'
             }), 400
 
         if not budget or budget <= 0:
@@ -104,7 +105,7 @@ def suggest_destinations():
         print(f"\n📝 Received request:")
         print(f"   Destination Type: {destination_type}")
         print(f"   Small Child: {small_child}")
-        print(f"   Duration: {duration} hours")
+        print(f"   Duration: {duration} hours" if duration is not None else "   Duration: Not specified")
         print(f"   Budget: ₹{budget:,}")
 
         # Call the agent
