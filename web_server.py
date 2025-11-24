@@ -117,6 +117,16 @@ def suggest_destinations():
             budget=budget
         )
 
+        # Check if agent returned an error (e.g., no matches found)
+        if not result.get('success', True):
+            return jsonify({
+                'success': False,
+                'error': result.get('error', 'An error occurred while processing your request'),
+                'query': result.get('query'),
+                'tools_used': len(result.get('tools_used', [])),
+                'iterations': result.get('iterations', 0)
+            }), 400
+
         # Return the response
         return jsonify({
             'success': True,
