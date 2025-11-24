@@ -220,7 +220,7 @@ Examples:
         print("\nSet it using one of these methods:")
         print("  1. Environment variable: export GOOGLE_API_KEY='your-key'")
         print("  2. Command line argument: --api-key 'your-key'")
-        print("\nGet your API key at: https://makersuite.google.com/app/apikey\n")
+        print("\nGet your API key at: https://aistudio.google.com/app/apikey\n")
         sys.exit(1)
 
     # Initialize agent

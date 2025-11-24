@@ -47,7 +47,7 @@ pip install -r requirements.txt
 
 ### 2. Get Google API Key
 
-1. Visit [Google AI Studio](https://makersuite.google.com/app/apikey)
+1. Visit [Google AI Studio](https://aistudio.google.com/app/apikey)
 2. Create a new API key
 3. Set it as an environment variable:
 
@@ -411,7 +411,7 @@ This project uses:
 
 ## Resources
 
-- [Google AI Studio](https://makersuite.google.com/)
+- [Google AI Studio](https://aistudio.google.com/)
 - [Google Generative AI Python SDK](https://github.com/google/generative-ai-python)
 - [Kaggle Dataset](https://www.kaggle.com/datasets/saketk511/travel-dataset-guide-to-indias-must-see-places)
 - [Pandas Documentation](https://pandas.pydata.org/)
