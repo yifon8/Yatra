@@ -261,6 +261,9 @@ def get_more_destinations():
         displayed_destinations = sorted_destinations[start_idx:end_idx]
         has_more = end_idx < len(sorted_destinations)
 
+        # Check if this is the last batch
+        is_last_batch = not has_more and len(displayed_destinations) > 0
+
         # Update session
         session['current_page'] = next_page
 
@@ -268,7 +271,8 @@ def get_more_destinations():
             'success': True,
             'destinations': displayed_destinations,
             'has_more': has_more,
-            'end_of_results': False,
+            'end_of_results': is_last_batch,
+            'message': 'End of Suggestions, feel free to Restart your search.' if is_last_batch else None,
             'total_count': len(sorted_destinations)
         })
 

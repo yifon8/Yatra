@@ -524,12 +524,25 @@
 
                 if (response.ok && result.success) {
                     if (result.end_of_results) {
-                        // Show end of results message
-                        resultsContent.innerHTML = `
-                            <p style="color: #d97531; text-align: center; font-weight: 600;">
-                                ${result.message}
-                            </p>
-                        `;
+                        // If we have destinations, display them first
+                        if (result.destinations && result.destinations.length > 0) {
+                            displayDestinations(result.destinations);
+
+                            // Append end of results message below the destinations
+                            resultsContent.innerHTML += `
+                                <p style="color: #d97531; text-align: center; font-weight: 600; margin-top: 20px; padding-top: 20px; border-top: 2px solid rgba(217, 117, 49, 0.2);">
+                                    ${result.message}
+                                </p>
+                            `;
+                        } else {
+                            // No destinations, just show the message
+                            resultsContent.innerHTML = `
+                                <p style="color: #d97531; text-align: center; font-weight: 600;">
+                                    ${result.message}
+                                </p>
+                            `;
+                        }
+
                         retryBtn.textContent = 'Restart';
                         retryBtn.style.display = 'block';
                         isEndOfResults = true;
