@@ -214,7 +214,17 @@
             flex-shrink: 0;
         }
 
-        .retry-button {
+        .results-buttons-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+            margin-top: 44px;
+            margin-bottom: 44px;
+            gap: 20px;
+        }
+
+        .restart-button, .more-button {
             background: linear-gradient(135deg, #d97531 0%, #b85a1f 100%);
             color: white;
             border: none;
@@ -225,19 +235,20 @@
             cursor: pointer;
             box-shadow: 0 4px 15px rgba(217, 117, 49, 0.3);
             transition: transform 0.2s, box-shadow 0.2s;
-            width: 100%;
             flex-shrink: 0;
-            margin-top: 44px;
-            margin-bottom: 44px;
         }
 
-        .retry-button:hover {
+        .restart-button:hover, .more-button:hover {
             transform: translateY(-2px);
             box-shadow: 0 6px 20px rgba(217, 117, 49, 0.4);
         }
 
-        .retry-button:active {
+        .restart-button:active, .more-button:active {
             transform: translateY(0);
+        }
+
+        .more-button {
+            margin-left: auto;
         }
     </style>
 </head>
@@ -293,7 +304,10 @@
                 <p>Your travel recommendations will appear here...</p>
             </div>
             <div class="results-divider"></div>
-            <button type="button" class="retry-button" id="retryBtn">More</button>
+            <div class="results-buttons-container">
+                <button type="button" class="restart-button" id="restartBtn">Restart</button>
+                <button type="button" class="more-button" id="moreBtn">More</button>
+            </div>
         </div>
     </div>
 
@@ -303,7 +317,8 @@
         const hoursInput = document.getElementById('hours');
         const budgetInput = document.getElementById('budget');
         const submitBtn = document.getElementById('submitBtn');
-        const retryBtn = document.getElementById('retryBtn');
+        const restartBtn = document.getElementById('restartBtn');
+        const moreBtn = document.getElementById('moreBtn');
         const resultsContent = document.getElementById('resultsContent');
 
         // Track current state
@@ -430,8 +445,7 @@
             // Show loading state
             resultsContent.innerHTML = '<p>🔍 Searching for the best destinations for you...</p>';
             submitBtn.disabled = true;
-            retryBtn.textContent = 'More';
-            retryBtn.style.display = 'block';
+            moreBtn.style.display = 'block';
 
             try {
                 // Send POST request to backend API
@@ -456,7 +470,7 @@
 
                     // Show or hide More button based on whether there are more results
                     if (!hasMoreResults) {
-                        retryBtn.style.display = 'none';
+                        moreBtn.style.display = 'none';
                     }
                 } else if (result.error) {
                     // Server returned a specific error message (400 or other error)
@@ -465,7 +479,7 @@
                             ❌ ${result.error}
                         </p>
                     `;
-                    retryBtn.style.display = 'none';
+                    moreBtn.style.display = 'none';
                 } else {
                     // Unexpected error format
                     resultsContent.innerHTML = `
@@ -473,7 +487,7 @@
                             ❌ An unexpected error occurred. Server returned status: ${response.status}
                         </p>
                     `;
-                    retryBtn.style.display = 'none';
+                    moreBtn.style.display = 'none';
                 }
 
             } catch (error) {
@@ -486,7 +500,7 @@
                         Error: ${error.message}
                     </p>
                 `;
-                retryBtn.style.display = 'none';
+                moreBtn.style.display = 'none';
             } finally {
                 submitBtn.disabled = false;
             }
@@ -494,23 +508,9 @@
 
         // Function to get more destinations
         async function getMoreDestinations() {
-            // If we've reached the end, reset the search
-            if (isEndOfResults) {
-                // Reset form
-                destinationSelect.value = '';
-                hoursInput.value = '';
-                budgetInput.value = '';
-                resultsContent.innerHTML = '<p>Your travel recommendations will appear here...</p>';
-                retryBtn.textContent = 'More';
-                retryBtn.style.display = 'block';
-                hasMoreResults = false;
-                isEndOfResults = false;
-                return;
-            }
-
             // Show loading state
             const currentContent = resultsContent.innerHTML;
-            retryBtn.disabled = true;
+            moreBtn.disabled = true;
 
             try {
                 const response = await fetch('/api/more', {
@@ -544,14 +544,8 @@
                             `;
                         }
 
-                        retryBtn.textContent = 'Restart';
-                        retryBtn.style.display = 'block';
+                        moreBtn.style.display = 'none';
                         isEndOfResults = true;
-
-                        // Scroll the button into view so it's visible
-                        setTimeout(() => {
-                            retryBtn.scrollIntoView({ behavior: 'smooth', block: 'end' });
-                        }, 100);
                     } else {
                         // Display the new destinations
                         displayDestinations(result.destinations);
@@ -559,7 +553,7 @@
 
                         // Hide More button if no more results
                         if (!hasMoreResults) {
-                            retryBtn.style.display = 'none';
+                            moreBtn.style.display = 'none';
                         }
                     }
                 } else if (result.error) {
@@ -568,7 +562,7 @@
                             ❌ ${result.error}
                         </p>
                     `;
-                    retryBtn.style.display = 'none';
+                    moreBtn.style.display = 'none';
                 }
 
             } catch (error) {
@@ -576,13 +570,32 @@
                 resultsContent.innerHTML = currentContent;
                 alert('Failed to load more destinations. Please try again.');
             } finally {
-                retryBtn.disabled = false;
+                moreBtn.disabled = false;
             }
+        }
+
+        // Function to restart search - clear form and results
+        function restartSearch() {
+            // Reset form fields
+            destinationSelect.value = '';
+            hoursInput.value = '';
+            budgetInput.value = '';
+
+            // Reset results content
+            resultsContent.innerHTML = '<p>Your travel recommendations will appear here...</p>';
+
+            // Reset state
+            hasMoreResults = false;
+            isEndOfResults = false;
+
+            // Show More button (will be managed by next search)
+            moreBtn.style.display = 'block';
         }
 
         // Event listeners
         submitBtn.addEventListener('click', submitForm);
-        retryBtn.addEventListener('click', getMoreDestinations);
+        restartBtn.addEventListener('click', restartSearch);
+        moreBtn.addEventListener('click', getMoreDestinations);
 
         // Allow Enter key to submit form
         document.addEventListener('keypress', (e) => {
