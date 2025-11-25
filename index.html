@@ -288,7 +288,7 @@
                 <p>Your travel recommendations will appear here...</p>
             </div>
             <div class="results-divider"></div>
-            <button type="button" class="retry-button" id="retryBtn">Retry</button>
+            <button type="button" class="retry-button" id="retryBtn">More</button>
         </div>
     </div>
 
@@ -300,6 +300,10 @@
         const submitBtn = document.getElementById('submitBtn');
         const retryBtn = document.getElementById('retryBtn');
         const resultsContent = document.getElementById('resultsContent');
+
+        // Track current state
+        let hasMoreResults = false;
+        let isEndOfResults = false;
 
         // Function to get form data
         function getFormData() {
@@ -340,6 +344,66 @@
             return errors;
         }
 
+        // Function to format a single destination
+        function formatDestination(dest) {
+            const name = dest.name || dest.place || 'Unknown Destination';
+            const rating = dest.google_review_rating || dest.rating || 'N/A';
+            const type = dest.type || '';
+            const city = dest.city || '';
+            const state = dest.state || '';
+            const description = dest.description || '';
+            const time = dest.time_needed_to_visit_in_hrs || '';
+            const fee = dest.entrance_fee_in_inr || '';
+
+            let html = `<strong>${name}</strong>`;
+
+            if (rating !== 'N/A' && rating !== '') {
+                html += ` <span style="color: #d97531;">★ ${rating}/5</span>`;
+            }
+
+            html += '<br>';
+
+            if (type) {
+                html += `<em>Type:</em> ${type}<br>`;
+            }
+
+            if (city || state) {
+                html += `<em>Location:</em> ${city}${city && state ? ', ' : ''}${state}<br>`;
+            }
+
+            if (time && time !== '') {
+                html += `<em>Time needed:</em> ${time} hours<br>`;
+            }
+
+            if (fee && fee !== '') {
+                html += `<em>Entry fee:</em> ₹${fee}<br>`;
+            }
+
+            if (description && description !== '') {
+                html += `<br>${description}`;
+            }
+
+            return html;
+        }
+
+        // Function to display destinations
+        function displayDestinations(destinations) {
+            if (!destinations || destinations.length === 0) {
+                resultsContent.innerHTML = '<p>No destinations found matching your criteria.</p>';
+                return;
+            }
+
+            const listItems = destinations.map(dest => {
+                return `<li>${formatDestination(dest)}</li>`;
+            }).join('');
+
+            resultsContent.innerHTML = `
+                <ul class="results-list">
+                    ${listItems}
+                </ul>
+            `;
+        }
+
         // Function to send request to backend
         async function submitForm() {
             const formData = getFormData();
@@ -361,6 +425,8 @@
             // Show loading state
             resultsContent.innerHTML = '<p>🔍 Searching for the best destinations for you...</p>';
             submitBtn.disabled = true;
+            retryBtn.textContent = 'More';
+            retryBtn.style.display = 'block';
 
             try {
                 // Send POST request to backend API
@@ -369,7 +435,8 @@
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify(formData)
+                    body: JSON.stringify(formData),
+                    credentials: 'include'
                 });
 
                 // Parse the JSON response regardless of status
@@ -377,8 +444,15 @@
 
                 // Handle different response scenarios
                 if (response.ok && result.success) {
-                    // Success case - display recommendations
-                    displayRecommendations(result.recommendations);
+                    // Success case - display destinations
+                    displayDestinations(result.destinations);
+                    hasMoreResults = result.has_more;
+                    isEndOfResults = false;
+
+                    // Show or hide More button based on whether there are more results
+                    if (!hasMoreResults) {
+                        retryBtn.style.display = 'none';
+                    }
                 } else if (result.error) {
                     // Server returned a specific error message (400 or other error)
                     resultsContent.innerHTML = `
@@ -386,6 +460,7 @@
                             ❌ ${result.error}
                         </p>
                     `;
+                    retryBtn.style.display = 'none';
                 } else {
                     // Unexpected error format
                     resultsContent.innerHTML = `
@@ -393,6 +468,7 @@
                             ❌ An unexpected error occurred. Server returned status: ${response.status}
                         </p>
                     `;
+                    retryBtn.style.display = 'none';
                 }
 
             } catch (error) {
@@ -405,39 +481,84 @@
                         Error: ${error.message}
                     </p>
                 `;
+                retryBtn.style.display = 'none';
             } finally {
                 submitBtn.disabled = false;
             }
         }
 
-        // Function to display recommendations
-        function displayRecommendations(recommendations) {
-            // Convert text to HTML with proper formatting
-            const formattedText = recommendations
-                .replace(/\n\n/g, '<br><br>')
-                .replace(/\n/g, '<br>')
-                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                .replace(/\*(.*?)\*/g, '<em>$1</em>');
+        // Function to get more destinations
+        async function getMoreDestinations() {
+            // If we've reached the end, reset the search
+            if (isEndOfResults) {
+                // Reset form
+                destinationSelect.value = '';
+                hoursInput.value = '';
+                budgetInput.value = '';
+                resultsContent.innerHTML = '<p>Your travel recommendations will appear here...</p>';
+                retryBtn.textContent = 'More';
+                retryBtn.style.display = 'block';
+                hasMoreResults = false;
+                isEndOfResults = false;
+                return;
+            }
 
-            resultsContent.innerHTML = `
-                <div style="text-align: left; line-height: 1.6;">
-                    ${formattedText}
-                </div>
-            `;
+            // Show loading state
+            const currentContent = resultsContent.innerHTML;
+            retryBtn.disabled = true;
+
+            try {
+                const response = await fetch('/api/more', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include'
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    if (result.end_of_results) {
+                        // Show end of results message
+                        resultsContent.innerHTML = `
+                            <p style="color: #d97531; text-align: center; font-weight: 600;">
+                                ${result.message}
+                            </p>
+                        `;
+                        retryBtn.textContent = 'Restart';
+                        isEndOfResults = true;
+                    } else {
+                        // Display the new destinations
+                        displayDestinations(result.destinations);
+                        hasMoreResults = result.has_more;
+
+                        // Hide More button if no more results
+                        if (!hasMoreResults) {
+                            retryBtn.style.display = 'none';
+                        }
+                    }
+                } else if (result.error) {
+                    resultsContent.innerHTML = `
+                        <p style="color: #d97531;">
+                            ❌ ${result.error}
+                        </p>
+                    `;
+                    retryBtn.style.display = 'none';
+                }
+
+            } catch (error) {
+                console.error('Error:', error);
+                resultsContent.innerHTML = currentContent;
+                alert('Failed to load more destinations. Please try again.');
+            } finally {
+                retryBtn.disabled = false;
+            }
         }
 
         // Event listeners
         submitBtn.addEventListener('click', submitForm);
-
-        retryBtn.addEventListener('click', () => {
-            // Reset form
-            destinationSelect.value = '';
-            hoursInput.value = '';
-            budgetInput.value = '';
-
-            // Reset results
-            resultsContent.innerHTML = '<p>Your travel recommendations will appear here...</p>';
-        });
+        retryBtn.addEventListener('click', getMoreDestinations);
 
         // Allow Enter key to submit form
         document.addEventListener('keypress', (e) => {
@@ -451,7 +572,8 @@
         console.log('Available functions:', {
             getFormData: 'Get current form values',
             validateFormData: 'Validate form inputs',
-            submitForm: 'Submit form to backend API'
+            submitForm: 'Submit form to backend API',
+            getMoreDestinations: 'Get next batch of destinations'
         });
     </script>
 </body>
