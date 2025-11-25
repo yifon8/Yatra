@@ -4,16 +4,18 @@ Yatra Web Server - Flask API for the web interface
 Handles form submissions and connects to the DestinationSuggester agent
 """
 
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, session
 from flask_cors import CORS
 import os
 import sys
-from typing import Dict, Any
+from typing import Dict, Any, List
+import pandas as pd
 
 from agent import DestinationSuggester
 
 app = Flask(__name__, static_folder='.')
-CORS(app)
+app.secret_key = os.getenv('FLASK_SECRET_KEY', 'yatra-secret-key-change-in-production')
+CORS(app, supports_credentials=True)
 
 # Initialize the agent
 agent = None
@@ -50,6 +52,66 @@ def initialize_agent():
 def serve_index():
     """Serve the main HTML page"""
     return send_from_directory('.', 'index.html')
+
+
+def extract_destinations_from_tools(tools_used: List[Dict]) -> List[Dict]:
+    """
+    Extract all destinations from tool results
+
+    Args:
+        tools_used: List of tool execution results
+
+    Returns:
+        List of all destination dictionaries
+    """
+    all_destinations = []
+
+    for tool_call in tools_used:
+        if tool_call.get('tool') == 'search_destinations_quantitative':
+            result = tool_call.get('result', {})
+            destinations = result.get('destinations', [])
+            all_destinations.extend(destinations)
+
+    return all_destinations
+
+
+def sort_destinations_by_rating(destinations: List[Dict]) -> List[Dict]:
+    """
+    Sort destinations by rating in descending order
+    Destinations without ratings are placed at the end
+
+    Args:
+        destinations: List of destination dictionaries
+
+    Returns:
+        Sorted list of destinations
+    """
+    # Try to find rating column
+    rating_columns = ['google_review_rating', 'rating', 'review_rating',
+                     'user_rating', 'average_rating']
+
+    def get_rating(dest: Dict) -> float:
+        """Extract rating from destination, return -1 if not found or invalid"""
+        for col in rating_columns:
+            if col in dest:
+                try:
+                    rating_value = dest[col]
+                    # Handle empty strings
+                    if rating_value == '' or rating_value is None:
+                        continue
+                    # Convert to float
+                    rating = float(rating_value)
+                    # Check if it's a valid number (not NaN)
+                    if rating == rating:  # NaN != NaN
+                        return rating
+                except (ValueError, TypeError):
+                    continue
+        return -1  # No valid rating found
+
+    # Sort by rating descending, destinations without ratings go to the end
+    sorted_destinations = sorted(destinations, key=get_rating, reverse=True)
+
+    return sorted_destinations
 
 
 @app.route('/api/suggest', methods=['POST'])
@@ -123,10 +185,27 @@ def suggest_destinations():
                 'iterations': result.get('iterations', 0)
             }), 400
 
+        # Extract destinations from tool results
+        all_destinations = extract_destinations_from_tools(result.get('tools_used', []))
+
+        # Sort destinations by rating (descending)
+        sorted_destinations = sort_destinations_by_rating(all_destinations)
+
+        # Store sorted destinations in session for pagination
+        session['sorted_destinations'] = sorted_destinations
+        session['current_page'] = 0
+
+        # Get first 3 destinations
+        page_size = 3
+        displayed_destinations = sorted_destinations[:page_size]
+        has_more = len(sorted_destinations) > page_size
+
         # Return the response
         return jsonify({
             'success': True,
-            'recommendations': result['recommendations'],
+            'destinations': displayed_destinations,
+            'has_more': has_more,
+            'total_count': len(sorted_destinations),
             'query': result['query'],
             'tools_used': len(result.get('tools_used', [])),
             'iterations': result.get('iterations', 0)
@@ -134,6 +213,67 @@ def suggest_destinations():
 
     except Exception as e:
         print(f"❌ Error processing request: {str(e)}")
+        import traceback
+        traceback.print_exc()
+
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/api/more', methods=['POST'])
+def get_more_destinations():
+    """
+    Get next batch of destinations from the current search results
+
+    Returns:
+        Next 3 destinations from the sorted list
+    """
+    try:
+        # Get sorted destinations from session
+        sorted_destinations = session.get('sorted_destinations', [])
+        current_page = session.get('current_page', 0)
+
+        if not sorted_destinations:
+            return jsonify({
+                'success': False,
+                'error': 'No active search. Please submit a new search first.'
+            }), 400
+
+        # Calculate next page
+        page_size = 3
+        next_page = current_page + 1
+        start_idx = next_page * page_size
+        end_idx = start_idx + page_size
+
+        # Check if there are more destinations
+        if start_idx >= len(sorted_destinations):
+            return jsonify({
+                'success': True,
+                'destinations': [],
+                'has_more': False,
+                'end_of_results': True,
+                'message': 'End of Suggestions, feel free to Restart your search.'
+            })
+
+        # Get next batch
+        displayed_destinations = sorted_destinations[start_idx:end_idx]
+        has_more = end_idx < len(sorted_destinations)
+
+        # Update session
+        session['current_page'] = next_page
+
+        return jsonify({
+            'success': True,
+            'destinations': displayed_destinations,
+            'has_more': has_more,
+            'end_of_results': False,
+            'total_count': len(sorted_destinations)
+        })
+
+    except Exception as e:
+        print(f"❌ Error getting more destinations: {str(e)}")
         import traceback
         traceback.print_exc()
 
