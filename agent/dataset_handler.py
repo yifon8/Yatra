@@ -13,7 +13,7 @@ class DatasetHandler:
 
     # Mapping of destination type enums to actual Type values in the dataset
     DESTINATION_TYPE_MAPPING = {
-        'beach': ['Beach'],
+        'beach': ['Beach', 'Coast', 'Seaside', 'Inlet'],
         'mountain': ['Mountain Peak', 'Hill', 'Valley', 'Ski Resort', 'Viewpoint',
                      'Sunrise Point', 'Scenic Point', 'Scenic Area', 'Trekking'],
         'heritage': ['Fort', 'Palace', 'Monument', 'Tomb', 'Tombs', 'Museum', 'Cave',
