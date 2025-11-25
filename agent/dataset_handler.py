@@ -11,6 +11,20 @@ from typing import List, Dict, Any, Optional
 class DatasetHandler:
     """Handles all pandas operations on the travel destinations CSV dataset"""
 
+    # Mapping of destination type enums to actual Type values in the dataset
+    DESTINATION_TYPE_MAPPING = {
+        'beach': ['Beach'],
+        'mountain': ['Mountain Peak', 'Hill', 'Valley', 'Ski Resort', 'Viewpoint',
+                     'Sunrise Point', 'Scenic Point', 'Scenic Area', 'Trekking'],
+        'heritage': ['Fort', 'Palace', 'Monument', 'Tomb', 'Tombs', 'Museum', 'Cave',
+                     'War Memorial', 'Memorial', 'Historical', 'Mausoleum',
+                     'Prehistoric Site', 'Rock Carvings', 'Cultural', 'Religious Site',
+                     'Religious Complex', 'Religious Shrine', 'Shrine', 'Spiritual Center',
+                     'Temple', 'Temples', 'Monastery', 'Gurudwara', 'Church', 'Mosque',
+                     'Site', 'Landmark', 'Ghat', 'Stepwell'],
+        'wildlife': ['National Park', 'Wildlife Sanctuary', 'Bird Sanctuary', 'Zoo']
+    }
+
     def __init__(self, csv_path: str = None):
         """
         Initialize the dataset handler
@@ -317,25 +331,31 @@ class DatasetHandler:
         return df.copy()
 
     def _apply_type_filter_on_df(self, df: pd.DataFrame, destination_type: str) -> pd.DataFrame:
-        """Apply destination type filter directly on a DataFrame"""
+        """Apply destination type filter directly on a DataFrame using type mapping"""
+        # Get the list of actual Type values from the mapping
+        type_values = self.DESTINATION_TYPE_MAPPING.get(destination_type.lower(), [])
+
+        if not type_values:
+            # If no mapping exists, fall back to original string matching behavior
+            type_columns = ['type', 'category', 'destination_type', 'place_type']
+            for col in type_columns:
+                if col in df.columns:
+                    mask = df[col].str.lower().str.contains(
+                        destination_type.lower(),
+                        case=False,
+                        na=False
+                    )
+                    return df[mask].copy()
+            return df.copy()
+
+        # Use the mapping to filter by exact Type values
         type_columns = ['type', 'category', 'destination_type', 'place_type']
 
         for col in type_columns:
             if col in df.columns:
-                mask = df[col].str.lower().str.contains(
-                    destination_type.lower(),
-                    case=False,
-                    na=False
-                )
+                # Match any of the Type values in the mapping (case-insensitive)
+                mask = df[col].str.strip().isin(type_values)
                 return df[mask].copy()
-
-        if 'description' in df.columns:
-            mask = df['description'].str.lower().str.contains(
-                destination_type.lower(),
-                case=False,
-                na=False
-            )
-            return df[mask].copy()
 
         return df.copy()
 
