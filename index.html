@@ -531,7 +531,13 @@
                             </p>
                         `;
                         retryBtn.textContent = 'Restart';
+                        retryBtn.style.display = 'block';
                         isEndOfResults = true;
+
+                        // Scroll the button into view so it's visible
+                        setTimeout(() => {
+                            retryBtn.scrollIntoView({ behavior: 'smooth', block: 'end' });
+                        }, 100);
                     } else {
                         // Display the new destinations
                         displayDestinations(result.destinations);
