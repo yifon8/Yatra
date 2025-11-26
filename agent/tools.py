@@ -93,18 +93,18 @@ class TravelTools:
             },
             {
                 "name": "filter_by_city",
-                "description": "Filter destinations to show only those in or near a specified city. Uses web search to determine proximity and geographic relationships.",
+                "description": "Returns a list of city names that are in or near a specified target city. Uses web search to determine proximity and geographic relationships. Takes a list of destination names, checks which cities those destinations are in, and returns only the city names (not destination objects) that are in or near the target city. Use this to get applicable city names for final filtering.",
                 "parameters": {
                     "type": "object",
                     "properties": {
                         "destination_names": {
                             "type": "array",
                             "items": {"type": "string"},
-                            "description": "List of destination names to filter"
+                            "description": "List of destination names to check (their cities will be evaluated for proximity)"
                         },
                         "city": {
                             "type": "string",
-                            "description": "City name to filter by (e.g., 'Delhi', 'Mumbai', 'Bangalore')"
+                            "description": "Target city name to filter by (e.g., 'Delhi', 'Mumbai', 'Bangalore')"
                         }
                     },
                     "required": ["destination_names", "city"]
@@ -192,10 +192,10 @@ class TravelTools:
                     else:
                         dest['description'] = "[Note: Entry fee for this destination is unknown]"
 
-            # Limit to top 10 destinations to avoid payload size issues with Gemini API
-            # Also, only include essential fields to keep the response compact
+            # Limit to top 25 destinations and use compact format to manage payload size
+            # Only include essential fields to keep the response compact
             compact_destinations = []
-            for dest in destinations[:10]:
+            for dest in destinations[:25]:
                 compact_dest = {
                     'name': dest.get('name', dest.get('place', 'Unknown')),
                     'type': dest.get('type', ''),
@@ -458,19 +458,19 @@ Do not include any text before or after the JSON object."""
 
     def filter_by_city(self, destination_names: List[str], city: str) -> Dict[str, Any]:
         """
-        Filter destinations for city proximity using LLM with web search
+        Filter destinations by city proximity and return applicable city names using LLM with web search
 
         This implementation uses an LLM to search the web for information about
-        each destination and determine if it's located in or near the specified city.
-        The LLM considers geographic proximity, administrative boundaries, and
-        common travel accessibility.
+        each destination's city and determine if it's located in or near the specified city.
+        Returns only the city names (not full destination objects) that are in or near
+        the target city, which can then be used to filter the destination list.
 
         Args:
             destination_names: List of destination names to evaluate (can also accept list of dicts with 'name' key)
             city: City name to filter by (e.g., 'Delhi', 'Mumbai')
 
         Returns:
-            Dictionary with destinations in or near the city and analysis
+            Dictionary with city names that are in or near the target city and analysis
         """
         try:
             # Normalize destination_names - handle both strings and dicts
@@ -487,7 +487,7 @@ Do not include any text before or after the JSON object."""
                         return {
                             'success': False,
                             'error': f'Invalid destination object: {item}. Must have a "name", "place", or "destination" field.',
-                            'destinations': [],
+                            'city_names': [],
                             'analysis_log': [],
                             'target_city': city
                         }
@@ -495,7 +495,7 @@ Do not include any text before or after the JSON object."""
                     return {
                         'success': False,
                         'error': f'Invalid destination_names parameter. Expected list of strings or dicts, got: {type(item)}',
-                        'destinations': [],
+                        'city_names': [],
                         'analysis_log': [],
                         'target_city': city
                     }
@@ -506,7 +506,7 @@ Do not include any text before or after the JSON object."""
                 return {
                     'success': True,
                     'count': 0,
-                    'destinations': [],
+                    'city_names': [],
                     'analysis_log': [],
                     'target_city': city,
                     'method': 'llm_with_web_search'
@@ -520,7 +520,7 @@ Do not include any text before or after the JSON object."""
                 )
             )
 
-            nearby_destinations = []
+            nearby_city_names = set()  # Use set to avoid duplicates
             analysis_log = []
 
             for name in destination_names:
@@ -604,17 +604,12 @@ Do not include any text before or after the JSON object."""
                         "distance_info": analysis.get("distance_info", "N/A")
                     })
 
-                    # Add to nearby list if deemed close to the city
+                    # Add city name to nearby list if deemed close to the target city
                     if analysis.get("is_near_city", False):
-                        # Enrich destination details with LLM analysis
-                        details['city_proximity_analysis'] = {
-                            "target_city": city,
-                            "confidence": analysis.get("confidence", "unknown"),
-                            "reasoning": analysis.get("reasoning", ""),
-                            "actual_location": analysis.get("actual_location", "Unknown"),
-                            "distance_info": analysis.get("distance_info", "N/A")
-                        }
-                        nearby_destinations.append(details)
+                        # Extract the city name from destination details
+                        dest_city = details.get('city', '')
+                        if dest_city and dest_city.strip():
+                            nearby_city_names.add(dest_city.strip())
 
                 except json.JSONDecodeError as je:
                     analysis_log.append({
@@ -630,10 +625,13 @@ Do not include any text before or after the JSON object."""
                         "reason": f"LLM analysis failed: {str(e)}"
                     })
 
+            # Convert set to sorted list for consistent output
+            city_names_list = sorted(list(nearby_city_names))
+
             return {
                 "success": True,
-                "count": len(nearby_destinations),
-                "destinations": nearby_destinations,
+                "count": len(city_names_list),
+                "city_names": city_names_list,
                 "analysis_log": analysis_log,
                 "target_city": city,
                 "method": "llm_with_web_search"
@@ -642,7 +640,7 @@ Do not include any text before or after the JSON object."""
             return {
                 "success": False,
                 "error": str(e),
-                "destinations": [],
+                "city_names": [],
                 "analysis_log": [],
                 "target_city": city
             }
