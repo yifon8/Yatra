@@ -236,6 +236,7 @@
             box-shadow: 0 4px 15px rgba(217, 117, 49, 0.3);
             transition: transform 0.2s, box-shadow 0.2s;
             flex-shrink: 0;
+            height: 44px;
         }
 
         .restart-button:hover, .more-button:hover {
@@ -397,11 +398,11 @@
             }
 
             if (description && description !== '') {
-                html += `<br>${description}`;
+                html += `<br>${description}<br>`;
             }
 
             // Always show Entry Fee Value field
-            html += `<br><em>Entry Fee Value:</em> `;
+            html += `<em>Entry Fee Value:</em> `;
             if (fee === 0 || fee === '0') {
                 html += 'Free';
             } else if (fee && fee !== '') {
