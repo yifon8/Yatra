@@ -177,11 +177,21 @@ class DestinationSuggester:
                     if finish_reason_value and finish_reason_value != 1:
                         logger.warning(f"Initial response finish_reason: {finish_reason} (value: {finish_reason_value})")
 
-                        # Check for safety/content filtering (3 = SAFETY, 12 = undocumented safety code)
-                        if finish_reason_value in [3, 12]:
+                        # Check for safety/content filtering (3 = SAFETY)
+                        if finish_reason_value == 3:
                             return {
                                 'success': False,
                                 'error': 'Content filtered by safety settings. Please try rephrasing your query.',
+                                'query': query,
+                                'tools_used': [],
+                                'iterations': 0
+                            }
+
+                        # Check for unexpected tool call (12 = UNEXPECTED_TOOL_CALL)
+                        if finish_reason_value == 12:
+                            return {
+                                'success': False,
+                                'error': 'The AI model encountered an issue with your request. Please try rephrasing your query or adjusting your search criteria.',
                                 'query': query,
                                 'tools_used': [],
                                 'iterations': 0
@@ -298,11 +308,21 @@ class DestinationSuggester:
                             if finish_reason_value and finish_reason_value != 1:
                                 logger.warning(f"Response finish_reason: {finish_reason} (value: {finish_reason_value})")
 
-                                # Check for safety/content filtering (3 = SAFETY, 12 = undocumented safety code)
-                                if finish_reason_value in [3, 12]:
+                                # Check for safety/content filtering (3 = SAFETY)
+                                if finish_reason_value == 3:
                                     return {
                                         'success': False,
                                         'error': 'Content filtered by safety settings. Please try rephrasing your query or adjusting filters.',
+                                        'query': query,
+                                        'tools_used': conversation_history,
+                                        'iterations': iteration
+                                    }
+
+                                # Check for unexpected tool call (12 = UNEXPECTED_TOOL_CALL)
+                                if finish_reason_value == 12:
+                                    return {
+                                        'success': False,
+                                        'error': 'The AI model encountered an issue processing the tool result. This may be due to the data format. Please try again with different search criteria.',
                                         'query': query,
                                         'tools_used': conversation_history,
                                         'iterations': iteration
@@ -315,13 +335,35 @@ class DestinationSuggester:
                             if attempt < max_retries - 1:
                                 time.sleep(1)
                     except Exception as e:
-                        logger.error(f"Error sending tool result to Gemini (attempt {attempt + 1}/{max_retries}): {e}")
+                        error_str = str(e)
+                        logger.error(f"Error sending tool result to Gemini (attempt {attempt + 1}/{max_retries}): {error_str}")
+
+                        # Check if the error is related to finish_reason
+                        if "finish_reason" in error_str.lower():
+                            # Try to extract the finish_reason value from the error message
+                            if "finish_reason: 12" in error_str or "finish_reason:12" in error_str:
+                                return {
+                                    'success': False,
+                                    'error': 'The AI model encountered an issue processing the tool result. This may be due to the data format or size. Please try again with different search criteria or more specific filters.',
+                                    'query': query,
+                                    'tools_used': conversation_history,
+                                    'iterations': iteration
+                                }
+                            elif "finish_reason: 3" in error_str or "finish_reason:3" in error_str:
+                                return {
+                                    'success': False,
+                                    'error': 'Content filtered by safety settings. Please try rephrasing your query or adjusting filters.',
+                                    'query': query,
+                                    'tools_used': conversation_history,
+                                    'iterations': iteration
+                                }
+
                         if attempt < max_retries - 1:
                             time.sleep(1)
                         else:
                             return {
                                 'success': False,
-                                'error': f'API error after tool execution: {str(e)}',
+                                'error': f'API error after tool execution: {error_str}',
                                 'query': query,
                                 'tools_used': conversation_history,
                                 'iterations': iteration

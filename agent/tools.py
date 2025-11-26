@@ -192,16 +192,34 @@ class TravelTools:
                     else:
                         dest['description'] = "[Note: Entry fee for this destination is unknown]"
 
+            # Limit to top 10 destinations to avoid payload size issues with Gemini API
+            # Also, only include essential fields to keep the response compact
+            compact_destinations = []
+            for dest in destinations[:10]:
+                compact_dest = {
+                    'name': dest.get('name', dest.get('place', 'Unknown')),
+                    'type': dest.get('type', ''),
+                    'city': dest.get('city', ''),
+                    'state': dest.get('state', ''),
+                    'description': dest.get('description', '')[:500] if dest.get('description') else '',  # Limit description length
+                    'google_review_rating': dest.get('google_review_rating', ''),
+                    'entrance_fee_in_inr': dest.get('entrance_fee_in_inr', ''),
+                    'time_needed_to_visit_in_hrs': dest.get('time_needed_to_visit_in_hrs', '')
+                }
+                compact_destinations.append(compact_dest)
+
             return {
                 "success": True,
                 "count": len(destinations),
-                "destinations": destinations[:25],  # Limit to top 25 for context
+                "total_matching": len(destinations),
+                "destinations": compact_destinations,
                 "filters_applied": {
                     "system_filters": "Rating >4.0 or null, Family-friendly",
                     "type": destination_type or "all",
                     "max_budget": max_budget or "unlimited",
                     "max_hours": max_hours or "unlimited"
-                }
+                },
+                "note": f"Showing top {len(compact_destinations)} of {len(destinations)} matching destinations"
             }
         except Exception as e:
             return {
