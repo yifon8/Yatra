@@ -469,16 +469,35 @@
 
                 // Handle different response scenarios
                 if (response.ok && result.success) {
-                    // Success case - display destinations
-                    displayDestinations(result.destinations);
-                    hasMoreResults = result.has_more;
-                    isEndOfResults = false;
+                    // Check if this is the end of results (single batch case)
+                    if (result.end_of_results) {
+                        // Display destinations first
+                        if (result.destinations && result.destinations.length > 0) {
+                            displayDestinations(result.destinations);
 
-                    // Show More button if there are more results available
-                    if (hasMoreResults) {
-                        moreBtn.style.display = 'block';
-                    } else {
+                            // Append end of results message below the destinations
+                            resultsContent.innerHTML += `
+                                <p style="color: #d97531; text-align: center; font-weight: 600; margin-top: 20px; padding-top: 20px; border-top: 2px solid rgba(217, 117, 49, 0.2);">
+                                    ${result.message}
+                                </p>
+                            `;
+                        }
+
                         moreBtn.style.display = 'none';
+                        isEndOfResults = true;
+                        hasMoreResults = false;
+                    } else {
+                        // Success case - display destinations
+                        displayDestinations(result.destinations);
+                        hasMoreResults = result.has_more;
+                        isEndOfResults = false;
+
+                        // Show More button if there are more results available
+                        if (hasMoreResults) {
+                            moreBtn.style.display = 'block';
+                        } else {
+                            moreBtn.style.display = 'none';
+                        }
                     }
                 } else if (result.error) {
                     // Server returned a specific error message (400 or other error)
