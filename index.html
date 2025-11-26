@@ -69,7 +69,8 @@
         }
 
         .form-group select,
-        .form-group input[type="number"] {
+        .form-group input[type="number"],
+        .form-group input[type="text"] {
             width: 100%;
             padding: 12px;
             border: 2px solid #e0e0e0;
@@ -79,7 +80,8 @@
         }
 
         .form-group select:focus,
-        .form-group input[type="number"]:focus {
+        .form-group input[type="number"]:focus,
+        .form-group input[type="text"]:focus {
             outline: none;
             border-color: #d97531;
         }
@@ -273,6 +275,12 @@
                     </select>
                 </div>
 
+                <!-- Row 1, Column 2: City input -->
+                <div class="form-group">
+                    <label for="city">In or Near City (Optional)</label>
+                    <input type="text" id="city" name="city" maxlength="30" placeholder="e.g., Delhi, Mumbai">
+                </div>
+
                 <!-- Row 2, Column 1: Hours input -->
                 <div class="form-group">
                     <label for="hours">Visit Duration (Optional)</label>
@@ -316,6 +324,7 @@
     <script>
         // Get form elements
         const destinationSelect = document.getElementById('destination');
+        const cityInput = document.getElementById('city');
         const hoursInput = document.getElementById('hours');
         const budgetInput = document.getElementById('budget');
         const submitBtn = document.getElementById('submitBtn');
@@ -332,6 +341,9 @@
             // Get destination type from dropdown
             const destinationType = destinationSelect.value;
 
+            // Get city from city input (string or null if empty)
+            const city = cityInput.value ? cityInput.value.trim() : null;
+
             // Get duration from hours input (decimal value or null if empty)
             const duration = hoursInput.value ? parseFloat(hoursInput.value) : null;
 
@@ -340,6 +352,7 @@
 
             return {
                 destinationType,
+                city,
                 duration,
                 budget
             };
@@ -608,6 +621,7 @@
         function restartSearch() {
             // Reset form fields
             destinationSelect.value = '';
+            cityInput.value = '';
             hoursInput.value = '';
             budgetInput.value = '';
 
