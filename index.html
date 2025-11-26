@@ -396,12 +396,18 @@
                 html += `<em>Time needed:</em> ${time} hours<br>`;
             }
 
-            if (fee && fee !== '') {
-                html += `<em>Entry fee:</em> ₹${fee}<br>`;
-            }
-
             if (description && description !== '') {
                 html += `<br>${description}`;
+            }
+
+            // Always show Entry Fee Value field
+            html += `<br><em>Entry Fee Value:</em> `;
+            if (fee === 0 || fee === '0') {
+                html += 'Free';
+            } else if (fee && fee !== '') {
+                html += `₹${fee}`;
+            } else {
+                html += 'Information not available';
             }
 
             return html;
