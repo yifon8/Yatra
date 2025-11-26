@@ -337,7 +337,7 @@ Do not include any text before or after the JSON object."""
                     # Generate response with grounding (web search)
                     response = model.generate_content(
                         prompt,
-                        tools='google_search_retrieval'  # Enable web search grounding
+                        tools=[{'google_search_retrieval': {}}]  # Enable web search grounding
                     )
 
                     # Parse the LLM response
@@ -486,7 +486,7 @@ Do not include any text before or after the JSON object."""
                     # Generate response with grounding (web search)
                     response = model.generate_content(
                         prompt,
-                        tools='google_search_retrieval'  # Enable web search grounding
+                        tools=[{'google_search_retrieval': {}}]  # Enable web search grounding
                     )
 
                     # Parse the LLM response
