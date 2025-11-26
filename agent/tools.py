@@ -270,12 +270,48 @@ class TravelTools:
         The LLM prioritizes official sources like state tourism board websites and Wikipedia.
 
         Args:
-            destination_names: List of destination names to evaluate
+            destination_names: List of destination names to evaluate (can also accept list of dicts with 'name' key)
 
         Returns:
             Dictionary with family-friendly destinations and analysis
         """
         try:
+            # Normalize destination_names - handle both strings and dicts
+            normalized_names = []
+            for item in destination_names:
+                if isinstance(item, str):
+                    normalized_names.append(item)
+                elif isinstance(item, dict):
+                    # Extract name from dict (try multiple possible keys)
+                    name = item.get('name') or item.get('place') or item.get('destination')
+                    if name:
+                        normalized_names.append(name)
+                    else:
+                        return {
+                            'success': False,
+                            'error': f'Invalid destination object: {item}. Must have a "name", "place", or "destination" field.',
+                            'destinations': [],
+                            'analysis_log': []
+                        }
+                else:
+                    return {
+                        'success': False,
+                        'error': f'Invalid destination_names parameter. Expected list of strings or dicts, got: {type(item)}',
+                        'destinations': [],
+                        'analysis_log': []
+                    }
+
+            destination_names = normalized_names
+
+            if not destination_names:
+                return {
+                    'success': True,
+                    'count': 0,
+                    'destinations': [],
+                    'analysis_log': [],
+                    'method': 'llm_with_web_search'
+                }
+
             # Configure Gemini with grounding for web search
             model = genai.GenerativeModel(
                 model_name='gemini-2.0-flash-exp',
@@ -412,13 +448,52 @@ Do not include any text before or after the JSON object."""
         common travel accessibility.
 
         Args:
-            destination_names: List of destination names to evaluate
+            destination_names: List of destination names to evaluate (can also accept list of dicts with 'name' key)
             city: City name to filter by (e.g., 'Delhi', 'Mumbai')
 
         Returns:
             Dictionary with destinations in or near the city and analysis
         """
         try:
+            # Normalize destination_names - handle both strings and dicts
+            normalized_names = []
+            for item in destination_names:
+                if isinstance(item, str):
+                    normalized_names.append(item)
+                elif isinstance(item, dict):
+                    # Extract name from dict (try multiple possible keys)
+                    name = item.get('name') or item.get('place') or item.get('destination')
+                    if name:
+                        normalized_names.append(name)
+                    else:
+                        return {
+                            'success': False,
+                            'error': f'Invalid destination object: {item}. Must have a "name", "place", or "destination" field.',
+                            'destinations': [],
+                            'analysis_log': [],
+                            'target_city': city
+                        }
+                else:
+                    return {
+                        'success': False,
+                        'error': f'Invalid destination_names parameter. Expected list of strings or dicts, got: {type(item)}',
+                        'destinations': [],
+                        'analysis_log': [],
+                        'target_city': city
+                    }
+
+            destination_names = normalized_names
+
+            if not destination_names:
+                return {
+                    'success': True,
+                    'count': 0,
+                    'destinations': [],
+                    'analysis_log': [],
+                    'target_city': city,
+                    'method': 'llm_with_web_search'
+                }
+
             # Configure Gemini with grounding for web search
             model = genai.GenerativeModel(
                 model_name='gemini-2.0-flash-exp',
