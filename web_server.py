@@ -200,8 +200,11 @@ def suggest_destinations():
         displayed_destinations = sorted_destinations[:page_size]
         has_more = len(sorted_destinations) > page_size
 
+        # Check if this is the only batch (first batch is also last batch)
+        is_single_batch = len(sorted_destinations) > 0 and not has_more
+
         # Return the response
-        return jsonify({
+        response_data = {
             'success': True,
             'destinations': displayed_destinations,
             'has_more': has_more,
@@ -209,7 +212,14 @@ def suggest_destinations():
             'query': result['query'],
             'tools_used': len(result.get('tools_used', [])),
             'iterations': result.get('iterations', 0)
-        })
+        }
+
+        # Add end of results flag and message if this is a single batch
+        if is_single_batch:
+            response_data['end_of_results'] = True
+            response_data['message'] = "End of Suggestions, feel free to Restart your search."
+
+        return jsonify(response_data)
 
     except Exception as e:
         print(f"❌ Error processing request: {str(e)}")
