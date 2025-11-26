@@ -396,12 +396,12 @@
                 html += `<em>Time needed:</em> ${time} hours<br>`;
             }
 
-            if (fee && fee !== '') {
-                html += `<em>Entry fee:</em> ₹${fee}<br>`;
-            }
-
             if (description && description !== '') {
                 html += `<br>${description}`;
+            }
+
+            if (fee && fee !== '') {
+                html += `<br><em>Entry Fee Value:</em> ₹${fee}`;
             }
 
             return html;
