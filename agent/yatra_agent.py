@@ -170,21 +170,22 @@ class DestinationSuggester:
                     candidate = response.candidates[0]
                     finish_reason = candidate.finish_reason
 
-                    # Log finish_reason if it's not a normal completion
-                    if finish_reason and finish_reason != genai.types.FinishReason.STOP:
-                        logger.warning(f"Initial response finish_reason: {finish_reason} (value: {finish_reason.value if hasattr(finish_reason, 'value') else finish_reason})")
+                    # Get the finish_reason value (1 = STOP/normal completion)
+                    finish_reason_value = finish_reason.value if hasattr(finish_reason, 'value') else finish_reason
 
-                        # Check for safety/content filtering
-                        if hasattr(finish_reason, 'value'):
-                            reason_value = finish_reason.value
-                            if reason_value in [3, 12]:  # SAFETY or undocumented safety-related codes
-                                return {
-                                    'success': False,
-                                    'error': 'Content filtered by safety settings. Please try rephrasing your query.',
-                                    'query': query,
-                                    'tools_used': [],
-                                    'iterations': 0
-                                }
+                    # Log finish_reason if it's not a normal completion (1 = STOP)
+                    if finish_reason_value and finish_reason_value != 1:
+                        logger.warning(f"Initial response finish_reason: {finish_reason} (value: {finish_reason_value})")
+
+                        # Check for safety/content filtering (3 = SAFETY, 12 = undocumented safety code)
+                        if finish_reason_value in [3, 12]:
+                            return {
+                                'success': False,
+                                'error': 'Content filtered by safety settings. Please try rephrasing your query.',
+                                'query': query,
+                                'tools_used': [],
+                                'iterations': 0
+                            }
 
                 # Check if we got a valid response
                 if response.candidates and response.candidates[0].content.parts:
@@ -290,21 +291,22 @@ class DestinationSuggester:
                             candidate = response.candidates[0]
                             finish_reason = candidate.finish_reason
 
-                            # Log finish_reason if it's not a normal completion
-                            if finish_reason and finish_reason != genai.types.FinishReason.STOP:
-                                logger.warning(f"Response finish_reason: {finish_reason} (value: {finish_reason.value if hasattr(finish_reason, 'value') else finish_reason})")
+                            # Get the finish_reason value (1 = STOP/normal completion)
+                            finish_reason_value = finish_reason.value if hasattr(finish_reason, 'value') else finish_reason
 
-                                # Check for safety/content filtering
-                                if hasattr(finish_reason, 'value'):
-                                    reason_value = finish_reason.value
-                                    if reason_value in [3, 12]:  # SAFETY or undocumented safety-related codes
-                                        return {
-                                            'success': False,
-                                            'error': 'Content filtered by safety settings. Please try rephrasing your query or adjusting filters.',
-                                            'query': query,
-                                            'tools_used': conversation_history,
-                                            'iterations': iteration
-                                        }
+                            # Log finish_reason if it's not a normal completion (1 = STOP)
+                            if finish_reason_value and finish_reason_value != 1:
+                                logger.warning(f"Response finish_reason: {finish_reason} (value: {finish_reason_value})")
+
+                                # Check for safety/content filtering (3 = SAFETY, 12 = undocumented safety code)
+                                if finish_reason_value in [3, 12]:
+                                    return {
+                                        'success': False,
+                                        'error': 'Content filtered by safety settings. Please try rephrasing your query or adjusting filters.',
+                                        'query': query,
+                                        'tools_used': conversation_history,
+                                        'iterations': iteration
+                                    }
 
                         if response.candidates and response.candidates[0].content.parts:
                             break
