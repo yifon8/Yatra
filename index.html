@@ -468,8 +468,8 @@
                     hasMoreResults = result.has_more;
                     isEndOfResults = false;
 
-                    // Show More button ONLY if there are more than 3 destinations AND there are more results
-                    if (result.destinations && result.destinations.length > 3 && hasMoreResults) {
+                    // Show More button if there are more results available
+                    if (hasMoreResults) {
                         moreBtn.style.display = 'block';
                     } else {
                         moreBtn.style.display = 'none';
@@ -553,8 +553,8 @@
                         displayDestinations(result.destinations);
                         hasMoreResults = result.has_more;
 
-                        // Show More button ONLY if there are more than 3 destinations AND there are more results
-                        if (result.destinations && result.destinations.length > 3 && hasMoreResults) {
+                        // Show More button if there are more results available
+                        if (hasMoreResults) {
                             moreBtn.style.display = 'block';
                         } else {
                             moreBtn.style.display = 'none';
