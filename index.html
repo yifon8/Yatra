@@ -249,6 +249,7 @@
 
         .more-button {
             margin-left: auto;
+            display: none;
         }
     </style>
 </head>
@@ -445,7 +446,6 @@
             // Show loading state
             resultsContent.innerHTML = '<p>🔍 Searching for the best destinations for you...</p>';
             submitBtn.disabled = true;
-            moreBtn.style.display = 'block';
 
             try {
                 // Send POST request to backend API
@@ -468,8 +468,10 @@
                     hasMoreResults = result.has_more;
                     isEndOfResults = false;
 
-                    // Show or hide More button based on whether there are more results
-                    if (!hasMoreResults) {
+                    // Show More button ONLY if there are more than 3 destinations AND there are more results
+                    if (result.destinations && result.destinations.length > 3 && hasMoreResults) {
+                        moreBtn.style.display = 'block';
+                    } else {
                         moreBtn.style.display = 'none';
                     }
                 } else if (result.error) {
@@ -551,8 +553,10 @@
                         displayDestinations(result.destinations);
                         hasMoreResults = result.has_more;
 
-                        // Hide More button if no more results
-                        if (!hasMoreResults) {
+                        // Show More button ONLY if there are more than 3 destinations AND there are more results
+                        if (result.destinations && result.destinations.length > 3 && hasMoreResults) {
+                            moreBtn.style.display = 'block';
+                        } else {
                             moreBtn.style.display = 'none';
                         }
                     }
@@ -588,8 +592,8 @@
             hasMoreResults = false;
             isEndOfResults = false;
 
-            // Show More button (will be managed by next search)
-            moreBtn.style.display = 'block';
+            // Hide More button (will be shown only if needed after next search)
+            moreBtn.style.display = 'none';
         }
 
         // Event listeners
