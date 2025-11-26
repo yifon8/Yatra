@@ -172,7 +172,7 @@ class TravelTools:
             return {
                 "success": True,
                 "count": len(destinations),
-                "destinations": destinations[:20],  # Limit to top 20 for context
+                "destinations": destinations[:25],  # Limit to top 25 for context
                 "filters_applied": {
                     "system_filters": "Rating >4.0 or null, Family-friendly",
                     "type": destination_type or "all",
