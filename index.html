@@ -400,8 +400,14 @@
                 html += `<br>${description}`;
             }
 
-            if (fee && fee !== '') {
-                html += `<br><em>Entry Fee Value:</em> ₹${fee}`;
+            // Always show Entry Fee Value field
+            html += `<br><em>Entry Fee Value:</em> `;
+            if (fee === 0 || fee === '0') {
+                html += 'Free';
+            } else if (fee && fee !== '') {
+                html += `₹${fee}`;
+            } else {
+                html += 'Information not available';
             }
 
             return html;
