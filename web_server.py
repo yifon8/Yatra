@@ -122,6 +122,7 @@ def suggest_destinations():
     Expected JSON body:
     {
         "destinationType": "beach|mountain|heritage|wildlife",
+        "city": string (city name, optional, max 30 chars),
         "duration": float (hours, optional) - e.g., 0.5, 1.5, 8.25,
         "budget": integer (Rupees, optional) - 0 allowed for free destinations
     }
@@ -138,6 +139,7 @@ def suggest_destinations():
 
         # Extract parameters
         destination_type = data.get('destinationType')
+        city = data.get('city')
         duration = data.get('duration')
         budget = data.get('budget')
 
@@ -146,6 +148,13 @@ def suggest_destinations():
             return jsonify({
                 'success': False,
                 'error': 'Destination type is required'
+            }), 400
+
+        # City is optional, but if provided, must be <= 30 characters
+        if city is not None and len(city) > 30:
+            return jsonify({
+                'success': False,
+                'error': 'City name must be 30 characters or less'
             }), 400
 
         # Duration is optional, but if provided, must be > 0
@@ -165,12 +174,14 @@ def suggest_destinations():
         # Log the request
         print(f"\n📝 Received request:")
         print(f"   Destination Type: {destination_type}")
+        print(f"   City: {city}" if city is not None else "   City: Not specified")
         print(f"   Duration: {duration} hours" if duration is not None else "   Duration: Not specified")
         print(f"   Budget: ₹{budget:,}" if budget is not None else "   Budget: Not specified")
 
         # Call the agent
         result = agent.suggest_destinations(
             destination_type=destination_type,
+            city=city,
             hours=duration,
             budget=budget
         )

@@ -128,6 +128,7 @@ class DestinationSuggester:
 
     def suggest_destinations(self,
                            destination_type: Optional[str] = None,
+                           city: Optional[str] = None,
                            hours: Optional[float] = None,
                            budget: Optional[float] = None,
                            max_iterations: int = 5) -> Dict[str, Any]:
@@ -136,6 +137,7 @@ class DestinationSuggester:
 
         Args:
             destination_type: Type of destination (beach, mountain, heritage, wildlife)
+            city: City name to find destinations in or near (optional, max 30 chars)
             hours: Available time in hours (can be decimal, e.g., 0.5, 1.5, 8.25)
             budget: Budget in rupees
             max_iterations: Maximum tool calling iterations
@@ -144,7 +146,7 @@ class DestinationSuggester:
             Dictionary with recommendations and reasoning
         """
         # Create the user query
-        query = self._create_query(destination_type, hours, budget)
+        query = self._create_query(destination_type, city, hours, budget)
 
         print(f"\n🔍 Processing query: {query}\n")
 
@@ -305,6 +307,7 @@ class DestinationSuggester:
 
     def _create_query(self,
                      destination_type: Optional[str],
+                     city: Optional[str],
                      hours: Optional[float],
                      budget: Optional[float]) -> str:
         """Create a natural language query from user parameters"""
@@ -312,6 +315,9 @@ class DestinationSuggester:
 
         if destination_type:
             query_parts.append(f"focusing on {destination_type} destinations")
+
+        if city is not None:
+            query_parts.append(f"in or near {city}")
 
         if hours is not None:
             # Format hours nicely (remove .0 for whole numbers)

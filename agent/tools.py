@@ -90,6 +90,25 @@ class TravelTools:
                     },
                     "required": ["destination_names"]
                 }
+            },
+            {
+                "name": "filter_by_city",
+                "description": "Filter destinations to show only those in or near a specified city. Uses web search to determine proximity and geographic relationships.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "destination_names": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "List of destination names to filter"
+                        },
+                        "city": {
+                            "type": "string",
+                            "description": "City name to filter by (e.g., 'Delhi', 'Mumbai', 'Bangalore')"
+                        }
+                    },
+                    "required": ["destination_names", "city"]
+                }
             }
         ]
 
@@ -112,6 +131,8 @@ class TravelTools:
             return self.get_dataset_summary(**parameters)
         elif tool_name == "filter_by_family_friendly":
             return self.filter_by_family_friendly(**parameters)
+        elif tool_name == "filter_by_city":
+            return self.filter_by_city(**parameters)
         else:
             return {"error": f"Unknown tool: {tool_name}"}
 
@@ -379,6 +400,158 @@ Do not include any text before or after the JSON object."""
                 "error": str(e),
                 "destinations": [],
                 "analysis_log": []
+            }
+
+    def filter_by_city(self, destination_names: List[str], city: str) -> Dict[str, Any]:
+        """
+        Filter destinations for city proximity using LLM with web search
+
+        This implementation uses an LLM to search the web for information about
+        each destination and determine if it's located in or near the specified city.
+        The LLM considers geographic proximity, administrative boundaries, and
+        common travel accessibility.
+
+        Args:
+            destination_names: List of destination names to evaluate
+            city: City name to filter by (e.g., 'Delhi', 'Mumbai')
+
+        Returns:
+            Dictionary with destinations in or near the city and analysis
+        """
+        try:
+            # Configure Gemini with grounding for web search
+            model = genai.GenerativeModel(
+                model_name='gemini-2.0-flash-exp',
+                generation_config=genai.GenerationConfig(
+                    temperature=0.0  # Deterministic responses
+                )
+            )
+
+            nearby_destinations = []
+            analysis_log = []
+
+            for name in destination_names:
+                details = self.dataset.get_destination_details(name)
+
+                if not details:
+                    analysis_log.append({
+                        "destination": name,
+                        "status": "not_found",
+                        "reason": "Destination not found in dataset"
+                    })
+                    continue
+
+                # Get location context from dataset
+                dest_city = details.get('city', '')
+                dest_state = details.get('state', '')
+                location_context = f"{name}, {dest_city}, {dest_state}, India" if dest_city and dest_state else f"{name}, India"
+
+                # Create prompt for LLM to analyze city proximity
+                prompt = f"""You are analyzing tourist destinations in India for geographic proximity.
+
+Target City: {city}
+Destination to analyze: {location_context}
+
+Please search the web for information about this destination's location, focusing on:
+1. Which city/cities the destination is located in or near
+2. Distance from {city} (if the destination is not in {city})
+3. Geographic/administrative relationship to {city} (same metro area, neighboring district, etc.)
+4. Common travel accessibility from {city}
+
+PRIORITIZE information from:
+- Official state tourism board websites (e.g., incredibleindia.org, state tourism sites)
+- Wikipedia
+- Official destination websites
+- Google Maps or similar mapping services
+
+Based on the web search results, determine if this destination is in or reasonably near {city}.
+Consider "near" to mean:
+- Within the same city/metro area
+- Within approximately 100km radius
+- Commonly visited as a day trip or short excursion from {city}
+- In neighboring districts or administrative areas that are closely connected
+
+Respond ONLY with a JSON object in this exact format:
+{{
+    "is_near_city": true/false,
+    "confidence": "high/medium/low",
+    "reasoning": "Brief explanation based on web search findings",
+    "actual_location": "City/district where the destination is actually located",
+    "distance_info": "Distance from target city if available, or 'N/A'"
+}}
+
+Do not include any text before or after the JSON object."""
+
+                try:
+                    # Generate response with grounding (web search)
+                    response = model.generate_content(
+                        prompt,
+                        tools='google_search_retrieval'  # Enable web search grounding
+                    )
+
+                    # Parse the LLM response
+                    response_text = response.text.strip()
+
+                    # Extract JSON from response (handle markdown code blocks if present)
+                    if '```json' in response_text:
+                        response_text = response_text.split('```json')[1].split('```')[0].strip()
+                    elif '```' in response_text:
+                        response_text = response_text.split('```')[1].split('```')[0].strip()
+
+                    analysis = json.loads(response_text)
+
+                    # Log the analysis
+                    analysis_log.append({
+                        "destination": name,
+                        "status": "analyzed",
+                        "is_near_city": analysis.get("is_near_city", False),
+                        "confidence": analysis.get("confidence", "unknown"),
+                        "reasoning": analysis.get("reasoning", ""),
+                        "actual_location": analysis.get("actual_location", "Unknown"),
+                        "distance_info": analysis.get("distance_info", "N/A")
+                    })
+
+                    # Add to nearby list if deemed close to the city
+                    if analysis.get("is_near_city", False):
+                        # Enrich destination details with LLM analysis
+                        details['city_proximity_analysis'] = {
+                            "target_city": city,
+                            "confidence": analysis.get("confidence", "unknown"),
+                            "reasoning": analysis.get("reasoning", ""),
+                            "actual_location": analysis.get("actual_location", "Unknown"),
+                            "distance_info": analysis.get("distance_info", "N/A")
+                        }
+                        nearby_destinations.append(details)
+
+                except json.JSONDecodeError as je:
+                    analysis_log.append({
+                        "destination": name,
+                        "status": "error",
+                        "reason": f"Failed to parse LLM response: {str(je)}",
+                        "raw_response": response_text[:200] if 'response_text' in locals() else "No response"
+                    })
+                except Exception as e:
+                    analysis_log.append({
+                        "destination": name,
+                        "status": "error",
+                        "reason": f"LLM analysis failed: {str(e)}"
+                    })
+
+            return {
+                "success": True,
+                "count": len(nearby_destinations),
+                "destinations": nearby_destinations,
+                "analysis_log": analysis_log,
+                "target_city": city,
+                "method": "llm_with_web_search"
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "error": str(e),
+                "destinations": [],
+                "analysis_log": [],
+                "target_city": city
             }
 
 
