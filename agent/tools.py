@@ -192,16 +192,17 @@ class TravelTools:
                     else:
                         dest['description'] = "[Note: Entry fee for this destination is unknown]"
 
-            # Limit to top 25 destinations and use compact format to manage payload size
+            # Limit to top 12 destinations and use compact format to manage payload size
+            # Reduced from 25 to 12 to prevent Gemini API finish_reason: 12 (UNEXPECTED_TOOL_CALL) errors
             # Only include essential fields to keep the response compact
             compact_destinations = []
-            for dest in destinations[:25]:
+            for dest in destinations[:12]:
                 compact_dest = {
                     'name': dest.get('name', dest.get('place', 'Unknown')),
                     'type': dest.get('type', ''),
                     'city': dest.get('city', ''),
                     'state': dest.get('state', ''),
-                    'description': dest.get('description', '')[:500] if dest.get('description') else '',  # Limit description length
+                    'description': dest.get('description', '')[:300] if dest.get('description') else '',  # Limit to 300 chars
                     'google_review_rating': dest.get('google_review_rating', ''),
                     'entrance_fee_in_inr': dest.get('entrance_fee_in_inr', ''),
                     'time_needed_to_visit_in_hrs': dest.get('time_needed_to_visit_in_hrs', '')
