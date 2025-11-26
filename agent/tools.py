@@ -6,6 +6,8 @@ Function declarations and implementations for the agent
 from typing import List, Dict, Any, Optional
 from .dataset_handler import DatasetHandler
 import json
+import google.generativeai as genai
+import os
 
 
 class TravelTools:
@@ -240,43 +242,143 @@ class TravelTools:
 
     def filter_by_family_friendly(self, destination_names: List[str]) -> Dict[str, Any]:
         """
-        Filter destinations for family-friendliness based on qualitative criteria
+        Filter destinations for family-friendliness using LLM with web search
 
-        Note: This is a simplified version. In a full implementation, this would
-        use the LLM to analyze each destination's description and features.
+        This implementation uses an LLM to search the web for information about
+        each destination and determine if it's suitable for families with small children.
+        The LLM prioritizes official sources like state tourism board websites and Wikipedia.
 
         Args:
             destination_names: List of destination names to evaluate
 
         Returns:
-            Dictionary with family-friendly destinations
+            Dictionary with family-friendly destinations and analysis
         """
         try:
+            # Configure Gemini with grounding for web search
+            model = genai.GenerativeModel(
+                model_name='gemini-2.0-flash-exp',
+                generation_config=genai.GenerationConfig(
+                    temperature=0.0  # Deterministic responses
+                )
+            )
+
             family_friendly = []
+            analysis_log = []
 
             for name in destination_names:
                 details = self.dataset.get_destination_details(name)
 
-                if details:
-                    # Simple heuristic - in practice, use LLM for qualitative analysis
-                    # Look for family-friendly keywords in description
-                    description = str(details.get('description', '')).lower()
-                    keywords = ['family', 'child', 'kid', 'safe', 'park',
-                               'museum', 'educational', 'garden']
+                if not details:
+                    analysis_log.append({
+                        "destination": name,
+                        "status": "not_found",
+                        "reason": "Destination not found in dataset"
+                    })
+                    continue
 
-                    if any(keyword in description for keyword in keywords):
+                # Get location context for better web search
+                city = details.get('city', '')
+                state = details.get('state', '')
+                location_context = f"{name}, {city}, {state}, India" if city and state else f"{name}, India"
+
+                # Create prompt for LLM to analyze family-friendliness
+                prompt = f"""You are analyzing tourist destinations in India for family-friendliness.
+
+Destination to analyze: {location_context}
+
+Please search the web for information about this destination, focusing on:
+1. Activities available at this destination
+2. Safety for children
+3. Amenities for families (restrooms, food options, accessibility)
+4. Educational or entertainment value for children
+
+PRIORITIZE information from:
+- Official state tourism board websites (e.g., incredibleindia.org, state tourism sites)
+- Wikipedia
+- Official destination websites
+- Reputable travel sites
+
+Based on the web search results, determine if this destination is suitable for families with small children (ages 3-12).
+
+Respond ONLY with a JSON object in this exact format:
+{{
+    "is_family_friendly": true/false,
+    "confidence": "high/medium/low",
+    "reasoning": "Brief explanation based on web search findings",
+    "key_activities": ["activity1", "activity2", "activity3"],
+    "concerns": ["concern1", "concern2"] or []
+}}
+
+Do not include any text before or after the JSON object."""
+
+                try:
+                    # Generate response with grounding (web search)
+                    response = model.generate_content(
+                        prompt,
+                        tools='google_search_retrieval'  # Enable web search grounding
+                    )
+
+                    # Parse the LLM response
+                    response_text = response.text.strip()
+
+                    # Extract JSON from response (handle markdown code blocks if present)
+                    if '```json' in response_text:
+                        response_text = response_text.split('```json')[1].split('```')[0].strip()
+                    elif '```' in response_text:
+                        response_text = response_text.split('```')[1].split('```')[0].strip()
+
+                    analysis = json.loads(response_text)
+
+                    # Log the analysis
+                    analysis_log.append({
+                        "destination": name,
+                        "status": "analyzed",
+                        "is_family_friendly": analysis.get("is_family_friendly", False),
+                        "confidence": analysis.get("confidence", "unknown"),
+                        "reasoning": analysis.get("reasoning", ""),
+                        "key_activities": analysis.get("key_activities", []),
+                        "concerns": analysis.get("concerns", [])
+                    })
+
+                    # Add to family-friendly list if deemed suitable
+                    if analysis.get("is_family_friendly", False):
+                        # Enrich destination details with LLM analysis
+                        details['family_friendly_analysis'] = {
+                            "confidence": analysis.get("confidence", "unknown"),
+                            "reasoning": analysis.get("reasoning", ""),
+                            "key_activities": analysis.get("key_activities", []),
+                            "concerns": analysis.get("concerns", [])
+                        }
                         family_friendly.append(details)
+
+                except json.JSONDecodeError as je:
+                    analysis_log.append({
+                        "destination": name,
+                        "status": "error",
+                        "reason": f"Failed to parse LLM response: {str(je)}",
+                        "raw_response": response_text[:200] if 'response_text' in locals() else "No response"
+                    })
+                except Exception as e:
+                    analysis_log.append({
+                        "destination": name,
+                        "status": "error",
+                        "reason": f"LLM analysis failed: {str(e)}"
+                    })
 
             return {
                 "success": True,
                 "count": len(family_friendly),
-                "destinations": family_friendly
+                "destinations": family_friendly,
+                "analysis_log": analysis_log,
+                "method": "llm_with_web_search"
             }
         except Exception as e:
             return {
                 "success": False,
                 "error": str(e),
-                "destinations": []
+                "destinations": [],
+                "analysis_log": []
             }
 
 
