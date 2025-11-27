@@ -303,11 +303,61 @@ class DestinationSuggester:
                         'iterations': iteration
                     }
 
+                # Record tool execution BEFORE sending result back to model
+                # This ensures conversation_history is accurate even if sending the result fails
+                tool_record = {
+                    'tool': tool_name,
+                    'params': tool_params,
+                    'result': tool_result
+                }
+                conversation_history.append(tool_record)
+
+                # Log tool result details for debugging
+                result_json = json.dumps(tool_result)
+                result_size = len(result_json)
+                result_size_kb = result_size / 1024
+                logger.info(f"Tool result size: {result_size} bytes ({result_size_kb:.2f} KB)")
+
+                # Truncate tool result if it's too large to prevent finish_reason 12 errors
+                max_result_size = 150000  # 150KB limit
+                truncated_result = tool_result
+                final_result_size = result_size
+                final_result_size_kb = result_size_kb
+
+                if result_size > max_result_size:
+                    logger.warning(f"Large tool result detected ({result_size_kb:.2f} KB) - truncating to prevent finish_reason 12")
+
+                    # If the result contains destinations, truncate the list
+                    if isinstance(tool_result, dict) and 'destinations' in tool_result:
+                        original_count = len(tool_result['destinations'])
+                        truncated_result = tool_result.copy()
+
+                        # Estimate how many destinations we can include
+                        # Assume each destination is roughly equal size
+                        avg_dest_size = result_size / original_count if original_count > 0 else result_size
+                        max_destinations = max(1, int(max_result_size / avg_dest_size * 0.8))  # 80% of limit for safety
+
+                        truncated_result['destinations'] = tool_result['destinations'][:max_destinations]
+                        truncated_result['truncated'] = True
+                        truncated_result['original_count'] = original_count
+                        truncated_result['showing_count'] = max_destinations
+                        truncated_result['note'] = f"Results truncated from {original_count} to {max_destinations} destinations due to size limits. Please use more specific filters to see all results."
+
+                        # Recalculate size after truncation
+                        truncated_json = json.dumps(truncated_result)
+                        final_result_size = len(truncated_json)
+                        final_result_size_kb = final_result_size / 1024
+                        logger.info(f"Truncated result size: {final_result_size} bytes ({final_result_size_kb:.2f} KB)")
+                        logger.info(f"Truncated from {original_count} to {max_destinations} destinations")
+                    else:
+                        # For non-destination results, just add a warning
+                        logger.warning(f"Tool result is too large but doesn't contain destinations list - cannot truncate")
+
                 # Format result for the model
                 function_response = genai.protos.Part(
                     function_response=genai.protos.FunctionResponse(
                         name=tool_name,
-                        response={'result': tool_result}
+                        response={'result': truncated_result}
                     )
                 )
 
@@ -340,9 +390,14 @@ class DestinationSuggester:
 
                                 # Check for unexpected tool call (12 = UNEXPECTED_TOOL_CALL)
                                 if finish_reason_value == 12:
+                                    logger.warning(f"Finish reason 12 after sending {tool_name} result ({final_result_size_kb:.2f} KB)")
+                                    error_msg = f'The AI model encountered an issue processing the tool result from {tool_name}.'
+                                    if final_result_size > 100000:
+                                        error_msg += f' The result size ({final_result_size_kb:.2f} KB) may be too large.'
+                                    error_msg += ' Please try again with more specific filters or search criteria.'
                                     return {
                                         'success': False,
-                                        'error': 'The AI model encountered an issue processing the tool result. This may be due to the data format. Please try again with different search criteria.',
+                                        'error': error_msg,
                                         'query': query,
                                         'tools_used': conversation_history,
                                         'iterations': iteration
@@ -362,9 +417,14 @@ class DestinationSuggester:
                         if "finish_reason" in error_str.lower():
                             # Try to extract the finish_reason value from the error message
                             if "finish_reason: 12" in error_str or "finish_reason:12" in error_str:
+                                logger.warning(f"Exception with finish_reason 12 after {tool_name} ({final_result_size_kb:.2f} KB): {error_str}")
+                                error_msg = f'The AI model encountered an issue processing the tool result from {tool_name}.'
+                                if final_result_size > 100000:
+                                    error_msg += f' The result size ({final_result_size_kb:.2f} KB) may be too large.'
+                                error_msg += ' Please try again with more specific filters or search criteria.'
                                 return {
                                     'success': False,
-                                    'error': 'The AI model encountered an issue processing the tool result. This may be due to the data format or size. Please try again with different search criteria or more specific filters.',
+                                    'error': error_msg,
                                     'query': query,
                                     'tools_used': conversation_history,
                                     'iterations': iteration
@@ -389,11 +449,8 @@ class DestinationSuggester:
                                 'iterations': iteration
                             }
 
-                conversation_history.append({
-                    'tool': tool_name,
-                    'params': tool_params,
-                    'result': tool_result
-                })
+                # Note: conversation_history.append() moved earlier to ensure
+                # tool execution is recorded even if sending the result fails
 
                 iteration += 1
             else:
