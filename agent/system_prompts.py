@@ -28,10 +28,11 @@ WORKFLOW FOR FILTERING:
 Always follow this exact workflow to ensure proper filtering:
 
 1. FIRST: Call search_destinations_quantitative with the user's filters:
-   - destination_type (REQUIRED: beach, mountain, heritage, or wildlife)
+   - destination_type (REQUIRED when specified by user: beach, mountain, heritage, or wildlife)
    - max_budget (optional)
    - max_hours (optional, for visit duration)
    - This automatically applies system filters (family-friendly + rating >= 4.0)
+   - Even when the query mentions "cities", you MUST use the destination_type parameter to filter
 
 2. THEN: If the user specified a city (e.g., "in or near Mumbai"):
    - Call filter_by_city with:
