@@ -334,7 +334,7 @@ class TravelTools:
 
             # Configure Gemini with grounding for web search
             model = genai.GenerativeModel(
-                model_name='gemini-2.0-flash-exp',
+                model_name='gemini-2.5-flash-lite',
                 generation_config=genai.GenerationConfig(
                     temperature=0.0  # Deterministic responses
                 )
@@ -478,7 +478,7 @@ Do not include any text before or after the JSON object."""
         try:
             # Configure Gemini with grounding for web search
             model = genai.GenerativeModel(
-                model_name='gemini-2.0-flash-exp',
+                model_name='gemini-2.5-flash-lite',
                 generation_config=genai.GenerationConfig(
                     temperature=0.0  # Deterministic responses
                 )
@@ -572,7 +572,7 @@ Do not include any text before or after the JSON object."""
                 "destinations": filtered_destinations,
                 "city_names": city_names,
                 "target_city": city,
-                "analysis": analysis,
+#               "analysis": analysis,
                 "filters_applied": {
                     "city_filter": city_names
                 },
@@ -586,8 +586,7 @@ Do not include any text before or after the JSON object."""
                 "city_names": [],
                 "target_city": city
             }
-
-
+            
 def format_tool_result(result: Dict[str, Any]) -> str:
     """
     Format tool result for display to the agent
