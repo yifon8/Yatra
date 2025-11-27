@@ -35,13 +35,15 @@ def _create_query(destination_type: Optional[str],
         query = f"""I need help finding {filters_desc} in or near {city}, India.
 
 IMPORTANT: Use this workflow:
-1. First, use search_destinations_quantitative to find all matching {filters_desc}
-2. Then, use filter_by_city with the destination names and city="{city}" to get the list of city names (including {city} and adjacent cities)
-3. Filter the destinations to keep only those where the city field matches any city in the returned list
-4. Sort by rating (descending) and select the top 25
-5. Provide your top 3 recommendations with reasoning
+1. Use filter_by_city with city="{city}" and destination_type="{destination_type if destination_type else 'not specified'}"
+2. The tool will automatically:
+   - Find adjacent cities to {city} using LLM with web search
+   - Filter destinations using pandas by those city names
+   - Apply system filters (rating >4.0 or null, family-friendly)
+   - Sort by rating descending and return top 25
+3. Provide your top 3 recommendations with reasoning
 
-Start by searching for destinations with the quantitative filters."""
+Note: Additional filters for hours={hours} and budget={budget} should be mentioned in your recommendations."""
     else:
         query = f"I'm looking for travel destination recommendations in India: {filters_desc}."
         query += "\n\nPlease use the available tools to search the dataset and provide me with your top 3 recommendations with reasoning."
