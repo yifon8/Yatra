@@ -420,6 +420,7 @@ class DestinationSuggester:
                      city: Optional[str],
 #                     hours: Optional[float],
 #                     budget: Optional[float]) -> str:
+    )
         """Create a natural language query from user parameters"""
 
         # Create query based on whether city is specified
