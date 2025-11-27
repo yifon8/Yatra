@@ -399,27 +399,41 @@ class DestinationSuggester:
                      hours: Optional[float],
                      budget: Optional[float]) -> str:
         """Create a natural language query from user parameters"""
-        query_parts = ["I'm looking for travel destination recommendations in India"]
 
+        # Build filter description
+        filter_parts = []
         if destination_type:
-            query_parts.append(f"focusing on {destination_type} destinations")
-
-        if city is not None:
-            query_parts.append(f"in or near {city}")
+            filter_parts.append(f"{destination_type} destinations")
+        else:
+            filter_parts.append("destinations")
 
         if hours is not None:
-            # Format hours nicely (remove .0 for whole numbers)
             hours_str = f"{hours:g}"
-            query_parts.append(f"where we can visit within {hours_str} hours")
+            filter_parts.append(f"visit duration within {hours_str} hours")
 
         if budget is not None:
             if budget == 0:
-                query_parts.append("preferably free destinations (no cost)")
+                filter_parts.append("free (no cost)")
             else:
-                query_parts.append(f"with a budget of around ₹{budget:,.0f}")
+                filter_parts.append(f"budget around ₹{budget:,.0f}")
 
-        query = " ".join(query_parts) + "."
-        query += "\n\nPlease use the available tools to search the dataset and provide me with your top 3 recommendations with reasoning."
+        filters_desc = ", ".join(filter_parts)
+
+        # Create query based on whether city is specified
+        if city is not None:
+            query = f"""I need help finding {filters_desc} in or near {city}, India.
+
+IMPORTANT: Use this workflow:
+1. First, use search_destinations_quantitative to find all matching {filters_desc}
+2. Then, use filter_by_city with the destination names and city="{city}" to get the list of city names (including {city} and adjacent cities)
+3. Filter the destinations to keep only those where the city field matches any city in the returned list
+4. Sort by rating (descending) and select the top 25
+5. Provide your top 3 recommendations with reasoning
+
+Start by searching for destinations with the quantitative filters."""
+        else:
+            query = f"I'm looking for travel destination recommendations in India: {filters_desc}."
+            query += "\n\nPlease use the available tools to search the dataset and provide me with your top 3 recommendations with reasoning."
 
         return query
 
