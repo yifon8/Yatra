@@ -416,10 +416,10 @@ class DestinationSuggester:
         }
 
     def _create_query(self,
-                     destination_type: [str],
+#                     destination_type: [str],
                      city: Optional[str],
-                     hours: Optional[float],
-                     budget: Optional[float]) -> str:
+#                     hours: Optional[float],
+#                     budget: Optional[float]) -> str:
         """Create a natural language query from user parameters"""
 
         # Create query based on whether city is specified
@@ -444,23 +444,23 @@ class DestinationSuggester:
 
             # Add tool instruction
             query += f'\n\nUse the filter_by_city tool with city="{city}".'
-#        else:
+        else:
             # Build filter description for non-city queries
-#            filter_parts = []
-#            if destination_type:
-#                filter_parts.append(f"{destination_type} destinations")
-#            else:
-#                filter_parts.append("destinations")
-#
-#            if hours is not None:
-#                hours_str = f"{hours:g}"
-#                filter_parts.append(f"visit duration within {hours_str} hours")
-#
-#            if budget is not None:
-#                if budget == 0:
-#                    filter_parts.append("free (no cost)")
-#                else:
-#                    filter_parts.append(f"budget around ₹{budget:,.0f}")
+            filter_parts = []
+            if destination_type:
+                filter_parts.append(f"{destination_type} destinations")
+            else:
+                filter_parts.append("destinations")
+
+            if hours is not None:
+                hours_str = f"{hours:g}"
+                filter_parts.append(f"visit duration within {hours_str} hours")
+
+            if budget is not None:
+                if budget == 0:
+                    filter_parts.append("free (no cost)")
+                else:
+                    filter_parts.append(f"budget around ₹{budget:,.0f}")
 
             filters_desc = ", ".join(filter_parts)
 
