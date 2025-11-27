@@ -93,7 +93,7 @@ class TravelTools:
             },
             {
                 "name": "filter_by_city",
-                "description": "Returns a list of city names that are in or near a specified target city. Uses web search to determine proximity and geographic relationships. Takes a list of destination names, checks which cities those destinations are in, and returns only the city names (not destination objects) that are in or near the target city. Use this to get applicable city names for final filtering.",
+                "description": "Returns a list of adjacent city names that are near a specified target city. Uses web search to determine proximity and geographic relationships. Takes a list of destination names, checks which cities those destinations are in, and returns only the adjacent city names (excludes the input city itself). The agent should then filter destinations to keep only those where city equals input city OR city is in the adjacent cities list, then sort by rating descending and select top 25.",
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -192,10 +192,11 @@ class TravelTools:
                     else:
                         dest['description'] = "[Note: Entry fee for this destination is unknown]"
 
-            # Limit to top 25 destinations and use compact format to manage payload size
+            # Return all matching destinations with compact format to manage payload size
             # Only include essential fields to keep the response compact
+            # Note: Agent will filter by city and then select top 25 by rating
             compact_destinations = []
-            for dest in destinations[:25]:
+            for dest in destinations:
                 compact_dest = {
                     'name': dest.get('name', dest.get('place', 'Unknown')),
                     'type': dest.get('type', ''),
@@ -219,7 +220,7 @@ class TravelTools:
                     "max_budget": max_budget or "unlimited",
                     "max_hours": max_hours or "unlimited"
                 },
-                "note": f"Showing top {len(compact_destinations)} of {len(destinations)} matching destinations"
+                "note": f"Returning all {len(compact_destinations)} matching destinations. Use filter_by_city to get adjacent cities, then filter and sort to get top 25."
             }
         except Exception as e:
             return {
@@ -458,19 +459,23 @@ Do not include any text before or after the JSON object."""
 
     def filter_by_city(self, destination_names: List[str], city: str) -> Dict[str, Any]:
         """
-        Filter destinations by city proximity and return applicable city names using LLM with web search
+        Get adjacent city names that are near a target city using LLM with web search
 
         This implementation uses an LLM to search the web for information about
-        each destination's city and determine if it's located in or near the specified city.
-        Returns only the city names (not full destination objects) that are in or near
-        the target city, which can then be used to filter the destination list.
+        each destination's city and determine if it's located near the specified target city.
+        Returns only the ADJACENT city names (excludes the input city itself) that can be
+        used to filter destinations. The workflow is:
+        1. This tool returns adjacent city names
+        2. Agent filters destinations where: city == input_city OR city in adjacent_cities
+        3. Agent sorts by rating descending and selects top 25
+        4. Agent presents in batches of 3
 
         Args:
             destination_names: List of destination names to evaluate (can also accept list of dicts with 'name' key)
-            city: City name to filter by (e.g., 'Delhi', 'Mumbai')
+            city: Target city name (e.g., 'Delhi', 'Mumbai') - will NOT be included in returned list
 
         Returns:
-            Dictionary with city names that are in or near the target city and analysis
+            Dictionary with adjacent city names (excluding input city) and analysis
         """
         try:
             # Normalize destination_names - handle both strings and dicts
@@ -609,7 +614,9 @@ Do not include any text before or after the JSON object."""
                         # Extract the city name from destination details
                         dest_city = details.get('city', '')
                         if dest_city and dest_city.strip():
-                            nearby_city_names.add(dest_city.strip())
+                            # Exclude the input city itself - only add adjacent cities
+                            if dest_city.strip().lower() != city.strip().lower():
+                                nearby_city_names.add(dest_city.strip())
 
                 except json.JSONDecodeError as je:
                     analysis_log.append({
