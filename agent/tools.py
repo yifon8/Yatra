@@ -93,7 +93,7 @@ class TravelTools:
             },
             {
                 "name": "filter_by_city",
-                "description": "Returns a list of adjacent city names that are near a specified target city. Uses web search to determine proximity and geographic relationships. Takes a list of destination names, checks which cities those destinations are in, and returns only the adjacent city names (excludes the input city itself). The agent should then filter destinations to keep only those where city equals input city OR city is in the adjacent cities list, then sort by rating descending and select top 25.",
+                "description": "Returns a list of city names including the input city AND all adjacent cities. Uses web search to determine proximity and geographic relationships. Takes a list of destination names, checks which cities those destinations are in, and returns city names that are in or near the target city (includes both the input city and adjacent cities). The agent should then filter destinations to keep only those where the city field matches any city in the returned list, then sort by rating descending and select top 25.",
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -459,23 +459,22 @@ Do not include any text before or after the JSON object."""
 
     def filter_by_city(self, destination_names: List[str], city: str) -> Dict[str, Any]:
         """
-        Get adjacent city names that are near a target city using LLM with web search
+        Get city names including input city and adjacent cities using LLM with web search
 
         This implementation uses an LLM to search the web for information about
-        each destination's city and determine if it's located near the specified target city.
-        Returns only the ADJACENT city names (excludes the input city itself) that can be
-        used to filter destinations. The workflow is:
-        1. This tool returns adjacent city names
-        2. Agent filters destinations where: city == input_city OR city in adjacent_cities
+        each destination's city and determine if it's located in or near the specified target city.
+        Returns the input city AND all adjacent city names for filtering. The workflow is:
+        1. This tool returns input city + adjacent city names (e.g., ["Mumbai", "Navi Mumbai", "Thane"])
+        2. Agent filters destinations where: city matches any city in the returned list
         3. Agent sorts by rating descending and selects top 25
         4. Agent presents in batches of 3
 
         Args:
             destination_names: List of destination names to evaluate (can also accept list of dicts with 'name' key)
-            city: Target city name (e.g., 'Delhi', 'Mumbai') - will NOT be included in returned list
+            city: Target city name (e.g., 'Delhi', 'Mumbai') - will be included in returned list
 
         Returns:
-            Dictionary with adjacent city names (excluding input city) and analysis
+            Dictionary with city names (input city + adjacent cities) and analysis
         """
         try:
             # Normalize destination_names - handle both strings and dicts
@@ -614,9 +613,7 @@ Do not include any text before or after the JSON object."""
                         # Extract the city name from destination details
                         dest_city = details.get('city', '')
                         if dest_city and dest_city.strip():
-                            # Exclude the input city itself - only add adjacent cities
-                            if dest_city.strip().lower() != city.strip().lower():
-                                nearby_city_names.add(dest_city.strip())
+                            nearby_city_names.add(dest_city.strip())
 
                 except json.JSONDecodeError as je:
                     analysis_log.append({
@@ -632,7 +629,8 @@ Do not include any text before or after the JSON object."""
                         "reason": f"LLM analysis failed: {str(e)}"
                     })
 
-            # Convert set to sorted list for consistent output
+            # Convert set to sorted list and add the input city itself
+            nearby_city_names.add(city.strip())  # Always include the input city
             city_names_list = sorted(list(nearby_city_names))
 
             return {
