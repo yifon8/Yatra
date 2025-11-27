@@ -39,7 +39,7 @@ class TravelTools:
                     "properties": {
                         "destination_type": {
                             "type": "string",
-                            "description": "Type of destination: 'beach', 'mountain', 'heritage', 'wildlife'. Optional - omit this parameter to search all types",
+                            "description": "Type of destination: 'beach', 'mountain', 'heritage', 'wildlife'.",
                             "enum": ["beach", "mountain", "heritage", "wildlife"]
                         },
                         "max_budget": {
@@ -491,7 +491,7 @@ Target City: {city}, India
 
 Please search the web for information about cities adjacent to or near {city}, focusing on:
 1. Cities in the same metropolitan area
-2. Neighboring cities within approximately 100km radius
+2. Neighboring cities with shared border
 3. Cities commonly visited as day trips from {city}
 4. Satellite cities or neighboring districts
 
