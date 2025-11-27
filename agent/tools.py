@@ -94,7 +94,7 @@ class TravelTools:
             },
             {
                 "name": "filter_by_city",
-                "description": "Filter destinations by city using LLM with web search to find adjacent cities. First uses LLM with web search to find cities adjacent to the input city, then filters the full dataset using pandas to return ALL destinations in the input city or adjacent cities. Optionally filters by destination_type if provided. Does NOT apply rating or family-friendly filters - returns all matching destinations.",
+                "description": "Filter a list of destinations by city using LLM with web search to find adjacent cities. First uses LLM with web search to find cities adjacent to the input city, then filters the provided destinations list to return only those in the input city or adjacent cities. This tool should be used AFTER search_destinations_quantitative to filter the results by city.",
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -102,13 +102,13 @@ class TravelTools:
                             "type": "string",
                             "description": "Target city name to filter by (e.g., 'Delhi', 'Mumbai', 'Bangalore')"
                         },
-                        "destination_type": {
-                            "type": "string",
-                            "description": "Optional destination type to apply additional filtering (beach, mountain, heritage, wildlife)",
-                            "enum": ["beach", "mountain", "heritage", "wildlife"]
+                        "destinations": {
+                            "type": "array",
+                            "items": {"type": "object"},
+                            "description": "List of destination objects to filter (typically from search_destinations_quantitative results)"
                         }
                     },
-                    "required": ["city"]
+                    "required": ["city", "destinations"]
                 }
             }
         ]
@@ -221,7 +221,7 @@ class TravelTools:
                     "max_budget": max_budget or "unlimited",
                     "max_hours": max_hours or "unlimited"
                 },
-                "note": f"Returning all {len(compact_destinations)} matching destinations. Use filter_by_city to get adjacent cities, then filter and sort to get top 25."
+                "note": f"Returning all {len(compact_destinations)} matching destinations with system filters applied (family-friendly, rating >= 4.0). If user specified a city, call filter_by_city with these results."
             }
         except Exception as e:
             return {
@@ -458,21 +458,19 @@ Do not include any text before or after the JSON object."""
                 "analysis_log": []
             }
 
-    def filter_by_city(self, city: str, destination_type: Optional[str] = None) -> Dict[str, Any]:
+    def filter_by_city(self, city: str, destinations: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
-        Filter destinations by city using LLM with web search to find adjacent cities,
-        then using pandas to filter the destinations.csv dataset
+        Filter a list of destinations by city using LLM with web search to find adjacent cities
 
         Workflow:
         1. Use LLM with web search to find cities adjacent to the input city
         2. Add the input city to the list
-        3. Use pandas to filter the full dataset by those city names ONLY
-        4. Apply destination_type filter if provided (optional)
-        5. Return all matching destinations
+        3. Filter the provided destinations list to only include those in the city or adjacent cities
+        4. Return filtered destinations
 
         Args:
             city: Target city name (e.g., 'Delhi', 'Mumbai')
-            destination_type: Optional destination type to filter by (beach, mountain, heritage, wildlife)
+            destinations: List of destination objects to filter (from search_destinations_quantitative)
 
         Returns:
             Dictionary with filtered destinations
@@ -557,54 +555,28 @@ Do not include any text before or after the JSON object."""
                     "fallback": "Using only input city"
                 }
 
-            # Use pandas to filter destinations by city names ONLY
-            filtered_df = self.dataset.filter_by_city_names(city_names)
+            # Filter the provided destinations list by city names
+            # Normalize city names for comparison
+            normalized_city_names = [name.strip().lower() for name in city_names]
 
-            if filtered_df.empty:
-                return {
-                    "success": True,
-                    "count": 0,
-                    "destinations": [],
-                    "city_names": city_names,
-                    "target_city": city,
-                    "analysis": analysis,
-                    "note": "No destinations found in or near the specified city"
-                }
-
-            # Apply destination_type filter if provided (optional)
-            if destination_type:
-                filtered_df = self.dataset._apply_type_filter_on_df(filtered_df, destination_type)
-
-            # Convert to list of dictionaries
-            destinations = self.dataset.to_dict_list(filtered_df)
-
-            # Create compact destination format
-            compact_destinations = []
+            filtered_destinations = []
             for dest in destinations:
-                compact_dest = {
-                    'name': dest.get('name', dest.get('place', 'Unknown')),
-                    'type': dest.get('type', ''),
-                    'city': dest.get('city', ''),
-                    'state': dest.get('state', ''),
-                    'description': dest.get('description', '')[:300] if dest.get('description') else '',
-                    'google_review_rating': dest.get('google_review_rating', ''),
-                    'entrance_fee_in_inr': dest.get('entrance_fee_in_inr', ''),
-                    'time_needed_to_visit_in_hrs': dest.get('time_needed_to_visit_in_hrs', '')
-                }
-                compact_destinations.append(compact_dest)
+                # Get the city value from the destination
+                dest_city = dest.get('city', '')
+                if isinstance(dest_city, str) and dest_city.strip().lower() in normalized_city_names:
+                    filtered_destinations.append(dest)
 
             return {
                 "success": True,
-                "count": len(compact_destinations),
-                "destinations": compact_destinations,
+                "count": len(filtered_destinations),
+                "destinations": filtered_destinations,
                 "city_names": city_names,
                 "target_city": city,
                 "analysis": analysis,
                 "filters_applied": {
-                    "city_filter": city_names,
-                    "type": destination_type or "all"
+                    "city_filter": city_names
                 },
-                "note": f"Found {len(compact_destinations)} destinations in {', '.join(city_names)}"
+                "note": f"Found {len(filtered_destinations)} destinations in {', '.join(city_names)}"
             }
         except Exception as e:
             return {
