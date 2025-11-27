@@ -127,7 +127,7 @@ class DestinationSuggester:
         return schema_dict
 
     def suggest_destinations(self,
-                           destination_type: Optional[str] = None,
+                           destination_type: [str] = None,
                            city: Optional[str] = None,
                            hours: Optional[float] = None,
                            budget: Optional[float] = None,
@@ -137,7 +137,7 @@ class DestinationSuggester:
 
         Args:
             destination_type: Type of destination (beach, mountain, heritage, wildlife)
-            city: City name to find destinations in or near (optional, max 30 chars)
+            city: City name to find city in or near (optional, max 30 chars)
             hours: Available time in hours (can be decimal, e.g., 0.5, 1.5, 8.25)
             budget: Budget in rupees
             max_iterations: Maximum tool calling iterations
@@ -416,7 +416,7 @@ class DestinationSuggester:
         }
 
     def _create_query(self,
-                     destination_type: Optional[str],
+                     destination_type: [str],
                      city: Optional[str],
                      hours: Optional[float],
                      budget: Optional[float]) -> str:
@@ -429,43 +429,43 @@ class DestinationSuggester:
             query = f"I need help finding cities in or next to {city}, India.\n"
 
             # Add filter details
-            if destination_type:
-                query += f"\nI'm interested in {destination_type} destinations."
-
-            if hours is not None:
-                hours_str = f"{hours:g}"
-                query += f"\nVisit duration: {hours_str} hours."
-
-            if budget is not None:
-                if budget == 0:
-                    query += f"\nBudget: Free (no cost)."
-                else:
-                    query += f"\nBudget: around ₹{budget:,.0f}."
+#            if destination_type:
+#                query += f"\nI'm interested in {destination_type} destinations."
+#
+#            if hours is not None:
+#                hours_str = f"{hours:g}"
+#                query += f"\nVisit duration: {hours_str} hours."
+#
+#           if budget is not None:
+#                if budget == 0:
+#                   query += f"\nBudget: Free (no cost)."
+#                else:
+#                    query += f"\nBudget: around ₹{budget:,.0f}."
 
             # Add tool instruction
             query += f'\n\nUse the filter_by_city tool with city="{city}".'
-        else:
+#        else:
             # Build filter description for non-city queries
-            filter_parts = []
-            if destination_type:
-                filter_parts.append(f"{destination_type} destinations")
-            else:
-                filter_parts.append("destinations")
-
-            if hours is not None:
-                hours_str = f"{hours:g}"
-                filter_parts.append(f"visit duration within {hours_str} hours")
-
-            if budget is not None:
-                if budget == 0:
-                    filter_parts.append("free (no cost)")
-                else:
-                    filter_parts.append(f"budget around ₹{budget:,.0f}")
+#            filter_parts = []
+#            if destination_type:
+#                filter_parts.append(f"{destination_type} destinations")
+#            else:
+#                filter_parts.append("destinations")
+#
+#            if hours is not None:
+#                hours_str = f"{hours:g}"
+#                filter_parts.append(f"visit duration within {hours_str} hours")
+#
+#            if budget is not None:
+#                if budget == 0:
+#                    filter_parts.append("free (no cost)")
+#                else:
+#                    filter_parts.append(f"budget around ₹{budget:,.0f}")
 
             filters_desc = ", ".join(filter_parts)
 
             query = f"I'm looking for travel destination recommendations in India: {filters_desc}."
-            query += "\n\nPlease use the available tools to search the dataset and provide me with your top 3 recommendations with reasoning."
+            query += "\n\nPlease use the available tools to search the dataset and provide me with the top 25 results."
 
         return query
 
