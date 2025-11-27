@@ -465,7 +465,7 @@ class DatasetHandler:
 
         # Find the city column
         city_column = None
-        possible_columns = ['city', 'location', 'place', 'area', 'district']
+        possible_columns = ['city']
 
         for col in possible_columns:
             if col in self.df.columns:
