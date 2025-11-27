@@ -392,9 +392,49 @@ class DestinationSuggester:
                 'iterations': iteration
             }
 
-        # Extract final response
+        # Extract final response - check if response contains text
         try:
+            # Verify the response has valid text content
+            if not response.candidates or not response.candidates[0].content.parts:
+                logger.error("Final response has no content parts")
+                return {
+                    'success': False,
+                    'error': 'Unable to process the search results. Please try again with different search criteria.',
+                    'query': query,
+                    'tools_used': conversation_history,
+                    'iterations': iteration
+                }
+
+            # Check if any part still has a function_call
+            has_function_call = any(
+                hasattr(part, 'function_call') and part.function_call
+                for part in response.candidates[0].content.parts
+            )
+
+            if has_function_call:
+                logger.error("Response still contains function calls, cannot extract text")
+                return {
+                    'success': False,
+                    'error': 'Unable to complete your request. Please try again with different search criteria.',
+                    'query': query,
+                    'tools_used': conversation_history,
+                    'iterations': iteration
+                }
+
+            # Now safely extract text
             final_response = response.text
+
+            # Verify we got actual text content
+            if not final_response or not final_response.strip():
+                logger.error("Final response is empty")
+                return {
+                    'success': False,
+                    'error': 'Unable to generate recommendations. Please try again with different search criteria.',
+                    'query': query,
+                    'tools_used': conversation_history,
+                    'iterations': iteration
+                }
+
         except Exception as e:
             logger.error(f"Error extracting final response: {e}")
             return {
@@ -538,6 +578,21 @@ class DestinationSuggester:
             return "I apologize, but I couldn't complete your request. Please try rephrasing your question or being more specific."
 
         try:
+            # Verify the response has valid text content
+            if not response.candidates or not response.candidates[0].content.parts:
+                logger.error("Chat response has no content parts")
+                return "I apologize, but I couldn't generate a response. Please try again."
+
+            # Check if any part still has a function_call
+            has_function_call = any(
+                hasattr(part, 'function_call') and part.function_call
+                for part in response.candidates[0].content.parts
+            )
+
+            if has_function_call:
+                logger.error("Chat response still contains function calls, cannot extract text")
+                return "I apologize, but I couldn't complete processing your message. Please try again."
+
             return response.text
         except Exception as e:
             logger.error(f"Error extracting chat response: {e}")
