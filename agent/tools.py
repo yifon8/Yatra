@@ -202,7 +202,7 @@ class TravelTools:
                     'type': dest.get('type', ''),
                     'city': dest.get('city', ''),
                     'state': dest.get('state', ''),
-                    'description': dest.get('description', '')[:500] if dest.get('description') else '',  # Limit description length
+                    'description': dest.get('description', '')[:300] if dest.get('description') else '',  # Limit to 300 chars
                     'google_review_rating': dest.get('google_review_rating', ''),
                     'entrance_fee_in_inr': dest.get('entrance_fee_in_inr', ''),
                     'time_needed_to_visit_in_hrs': dest.get('time_needed_to_visit_in_hrs', '')
