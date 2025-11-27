@@ -8,6 +8,7 @@ from .dataset_handler import DatasetHandler
 import json
 import google.generativeai as genai
 import os
+import pandas as pd
 
 
 class TravelTools:
@@ -93,21 +94,21 @@ class TravelTools:
             },
             {
                 "name": "filter_by_city",
-                "description": "Returns a list of city names including the input city AND all adjacent cities. Uses web search to determine proximity and geographic relationships. Takes a list of destination names, checks which cities those destinations are in, and returns city names that are in or near the target city (includes both the input city and adjacent cities). The agent should then filter destinations to keep only those where the city field matches any city in the returned list, then sort by rating descending and select top 25.",
+                "description": "Filter destinations by city using LLM with web search to find adjacent cities, then using pandas to filter the destinations.csv dataset. First uses web search to find cities adjacent to the input city, then filters the full dataset using pandas to return only destinations in the input city or adjacent cities. Returns filtered destinations sorted by rating (descending), limited to top 25.",
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "destination_names": {
-                            "type": "array",
-                            "items": {"type": "string"},
-                            "description": "List of destination names to check (their cities will be evaluated for proximity)"
-                        },
                         "city": {
                             "type": "string",
                             "description": "Target city name to filter by (e.g., 'Delhi', 'Mumbai', 'Bangalore')"
+                        },
+                        "destination_type": {
+                            "type": "string",
+                            "description": "Optional destination type to apply additional filtering (beach, mountain, heritage, wildlife)",
+                            "enum": ["beach", "mountain", "heritage", "wildlife"]
                         }
                     },
-                    "required": ["destination_names", "city"]
+                    "required": ["city"]
                 }
             }
         ]
@@ -457,65 +458,28 @@ Do not include any text before or after the JSON object."""
                 "analysis_log": []
             }
 
-    def filter_by_city(self, destination_names: List[str], city: str) -> Dict[str, Any]:
+    def filter_by_city(self, city: str, destination_type: Optional[str] = None) -> Dict[str, Any]:
         """
-        Get city names including input city and adjacent cities using LLM with web search
+        Filter destinations by city using LLM with web search to find adjacent cities,
+        then using pandas to filter the destinations.csv dataset
 
-        This implementation uses an LLM to search the web for information about
-        each destination's city and determine if it's located in or near the specified target city.
-        Returns the input city AND all adjacent city names for filtering. The workflow is:
-        1. This tool returns input city + adjacent city names (e.g., ["Mumbai", "Navi Mumbai", "Thane"])
-        2. Agent filters destinations where: city matches any city in the returned list
-        3. Agent sorts by rating descending and selects top 25
-        4. Agent presents in batches of 3
+        Workflow:
+        1. Use LLM with web search to find cities adjacent to the input city
+        2. Add the input city to the list
+        3. Use pandas to filter the full dataset by those city names
+        4. Apply system filters (rating >4.0 or null, family-friendly)
+        5. Apply destination_type filter if provided
+        6. Sort by rating descending
+        7. Return top 25 destinations
 
         Args:
-            destination_names: List of destination names to evaluate (can also accept list of dicts with 'name' key)
-            city: Target city name (e.g., 'Delhi', 'Mumbai') - will be included in returned list
+            city: Target city name (e.g., 'Delhi', 'Mumbai')
+            destination_type: Optional destination type to filter by (beach, mountain, heritage, wildlife)
 
         Returns:
-            Dictionary with city names (input city + adjacent cities) and analysis
+            Dictionary with filtered destinations
         """
         try:
-            # Normalize destination_names - handle both strings and dicts
-            normalized_names = []
-            for item in destination_names:
-                if isinstance(item, str):
-                    normalized_names.append(item)
-                elif isinstance(item, dict):
-                    # Extract name from dict (try multiple possible keys)
-                    name = item.get('name') or item.get('place') or item.get('destination')
-                    if name:
-                        normalized_names.append(name)
-                    else:
-                        return {
-                            'success': False,
-                            'error': f'Invalid destination object: {item}. Must have a "name", "place", or "destination" field.',
-                            'city_names': [],
-                            'analysis_log': [],
-                            'target_city': city
-                        }
-                else:
-                    return {
-                        'success': False,
-                        'error': f'Invalid destination_names parameter. Expected list of strings or dicts, got: {type(item)}',
-                        'city_names': [],
-                        'analysis_log': [],
-                        'target_city': city
-                    }
-
-            destination_names = normalized_names
-
-            if not destination_names:
-                return {
-                    'success': True,
-                    'count': 0,
-                    'city_names': [],
-                    'analysis_log': [],
-                    'target_city': city,
-                    'method': 'llm_with_web_search'
-                }
-
             # Configure Gemini with grounding for web search
             model = genai.GenerativeModel(
                 model_name='gemini-2.0-flash-exp',
@@ -524,129 +488,164 @@ Do not include any text before or after the JSON object."""
                 )
             )
 
-            nearby_city_names = set()  # Use set to avoid duplicates
-            analysis_log = []
+            # Create prompt for LLM to find adjacent cities
+            prompt = f"""You are identifying cities adjacent to a target city in India.
 
-            for name in destination_names:
-                details = self.dataset.get_destination_details(name)
+Target City: {city}, India
 
-                if not details:
-                    analysis_log.append({
-                        "destination": name,
-                        "status": "not_found",
-                        "reason": "Destination not found in dataset"
-                    })
-                    continue
-
-                # Get location context from dataset
-                dest_city = details.get('city', '')
-                dest_state = details.get('state', '')
-                location_context = f"{name}, {dest_city}, {dest_state}, India" if dest_city and dest_state else f"{name}, India"
-
-                # Create prompt for LLM to analyze city proximity
-                prompt = f"""You are analyzing tourist destinations in India for geographic proximity.
-
-Target City: {city}
-Destination to analyze: {location_context}
-
-Please search the web for information about this destination's location, focusing on:
-1. Which city/cities the destination is located in or near
-2. Distance from {city} (if the destination is not in {city})
-3. Geographic/administrative relationship to {city} (same metro area, neighboring district, etc.)
-4. Common travel accessibility from {city}
+Please search the web for information about cities adjacent to or near {city}, focusing on:
+1. Cities in the same metropolitan area
+2. Neighboring cities within approximately 100km radius
+3. Cities commonly visited as day trips from {city}
+4. Satellite cities or neighboring districts
 
 PRIORITIZE information from:
-- Official state tourism board websites (e.g., incredibleindia.org, state tourism sites)
-- Wikipedia
-- Official destination websites
+- Wikipedia articles about {city} metropolitan area
+- Official state tourism websites
+- Geographic databases
 - Google Maps or similar mapping services
 
-Based on the web search results, determine if this destination is in or reasonably near {city}.
-Consider "near" to mean:
-- Within the same city/metro area
-- Within approximately 100km radius
-- Commonly visited as a day trip or short excursion from {city}
-- In neighboring districts or administrative areas that are closely connected
+Based on the web search results, provide a list of city names that are in or adjacent to {city}.
 
 Respond ONLY with a JSON object in this exact format:
 {{
-    "is_near_city": true/false,
-    "confidence": "high/medium/low",
-    "reasoning": "Brief explanation based on web search findings",
-    "actual_location": "City/district where the destination is actually located",
-    "distance_info": "Distance from target city if available, or 'N/A'"
+    "adjacent_cities": ["City1", "City2", "City3", ...],
+    "reasoning": "Brief explanation of why these cities are considered adjacent",
+    "source_info": "Brief note about information sources used"
 }}
 
 Do not include any text before or after the JSON object."""
 
-                try:
-                    # Generate response with grounding (web search)
-                    response = model.generate_content(
-                        prompt,
-                        tools=[{'google_search_retrieval': {}}]  # Enable web search grounding
-                    )
+            try:
+                # Generate response with grounding (web search)
+                response = model.generate_content(
+                    prompt,
+                    tools=[{'google_search_retrieval': {}}]  # Enable web search grounding
+                )
 
-                    # Parse the LLM response
-                    response_text = response.text.strip()
+                # Parse the LLM response
+                response_text = response.text.strip()
 
-                    # Extract JSON from response (handle markdown code blocks if present)
-                    if '```json' in response_text:
-                        response_text = response_text.split('```json')[1].split('```')[0].strip()
-                    elif '```' in response_text:
-                        response_text = response_text.split('```')[1].split('```')[0].strip()
+                # Extract JSON from response (handle markdown code blocks if present)
+                if '```json' in response_text:
+                    response_text = response_text.split('```json')[1].split('```')[0].strip()
+                elif '```' in response_text:
+                    response_text = response_text.split('```')[1].split('```')[0].strip()
 
-                    analysis = json.loads(response_text)
+                analysis = json.loads(response_text)
 
-                    # Log the analysis
-                    analysis_log.append({
-                        "destination": name,
-                        "status": "analyzed",
-                        "is_near_city": analysis.get("is_near_city", False),
-                        "confidence": analysis.get("confidence", "unknown"),
-                        "reasoning": analysis.get("reasoning", ""),
-                        "actual_location": analysis.get("actual_location", "Unknown"),
-                        "distance_info": analysis.get("distance_info", "N/A")
-                    })
+                # Get adjacent cities from LLM response
+                adjacent_cities = analysis.get("adjacent_cities", [])
 
-                    # Add city name to nearby list if deemed close to the target city
-                    if analysis.get("is_near_city", False):
-                        # Extract the city name from destination details
-                        dest_city = details.get('city', '')
-                        if dest_city and dest_city.strip():
-                            nearby_city_names.add(dest_city.strip())
+                # Always include the input city
+                city_names = [city.strip()]
+                city_names.extend([c.strip() for c in adjacent_cities if c.strip()])
 
-                except json.JSONDecodeError as je:
-                    analysis_log.append({
-                        "destination": name,
-                        "status": "error",
-                        "reason": f"Failed to parse LLM response: {str(je)}",
-                        "raw_response": response_text[:200] if 'response_text' in locals() else "No response"
-                    })
-                except Exception as e:
-                    analysis_log.append({
-                        "destination": name,
-                        "status": "error",
-                        "reason": f"LLM analysis failed: {str(e)}"
-                    })
+                # Remove duplicates while preserving order
+                city_names = list(dict.fromkeys(city_names))
 
-            # Convert set to sorted list and add the input city itself
-            nearby_city_names.add(city.strip())  # Always include the input city
-            city_names_list = sorted(list(nearby_city_names))
+            except json.JSONDecodeError as je:
+                # If LLM fails, just use the input city
+                city_names = [city.strip()]
+                analysis = {
+                    "error": f"Failed to parse LLM response: {str(je)}",
+                    "fallback": "Using only input city"
+                }
+            except Exception as e:
+                # If LLM fails, just use the input city
+                city_names = [city.strip()]
+                analysis = {
+                    "error": f"LLM analysis failed: {str(e)}",
+                    "fallback": "Using only input city"
+                }
+
+            # Use pandas to filter destinations by city names
+            filtered_df = self.dataset.filter_by_city_names(city_names)
+
+            if filtered_df.empty:
+                return {
+                    "success": True,
+                    "count": 0,
+                    "destinations": [],
+                    "city_names": city_names,
+                    "target_city": city,
+                    "analysis": analysis,
+                    "note": "No destinations found in or near the specified city"
+                }
+
+            # Apply system-level filters
+            # 1. Rating filter (null or > 4.0)
+            filtered_df = self.dataset._apply_rating_filter_on_df(filtered_df, min_rating=4.0)
+
+            # 2. Family-friendly filter
+            filtered_df = self.dataset._apply_family_filter_on_df(filtered_df)
+
+            # 3. Apply destination_type filter if provided
+            if destination_type:
+                filtered_df = self.dataset._apply_type_filter_on_df(filtered_df, destination_type)
+
+            # Sort by rating descending
+            # Find rating column
+            rating_column = None
+            possible_columns = ['rating', 'google_review_rating', 'review_rating',
+                              'user_rating', 'average_rating']
+            for col in possible_columns:
+                if col in filtered_df.columns:
+                    rating_column = col
+                    break
+
+            if rating_column:
+                # Convert to numeric and sort
+                filtered_df['_rating_numeric'] = pd.to_numeric(
+                    filtered_df[rating_column], errors='coerce'
+                )
+                # Sort: NaN values last, then by rating descending
+                filtered_df = filtered_df.sort_values(
+                    by='_rating_numeric', ascending=False, na_position='last'
+                )
+                filtered_df = filtered_df.drop(columns=['_rating_numeric'])
+
+            # Limit to top 25
+            filtered_df = filtered_df.head(25)
+
+            # Convert to list of dictionaries
+            destinations = self.dataset.to_dict_list(filtered_df)
+
+            # Create compact destination format
+            compact_destinations = []
+            for dest in destinations:
+                compact_dest = {
+                    'name': dest.get('name', dest.get('place', 'Unknown')),
+                    'type': dest.get('type', ''),
+                    'city': dest.get('city', ''),
+                    'state': dest.get('state', ''),
+                    'description': dest.get('description', '')[:300] if dest.get('description') else '',
+                    'google_review_rating': dest.get('google_review_rating', ''),
+                    'entrance_fee_in_inr': dest.get('entrance_fee_in_inr', ''),
+                    'time_needed_to_visit_in_hrs': dest.get('time_needed_to_visit_in_hrs', '')
+                }
+                compact_destinations.append(compact_dest)
 
             return {
                 "success": True,
-                "count": len(city_names_list),
-                "city_names": city_names_list,
-                "analysis_log": analysis_log,
+                "count": len(compact_destinations),
+                "destinations": compact_destinations,
+                "city_names": city_names,
                 "target_city": city,
-                "method": "llm_with_web_search"
+                "analysis": analysis,
+                "filters_applied": {
+                    "system_filters": "Rating >4.0 or null, Family-friendly",
+                    "city_filter": city_names,
+                    "type": destination_type or "all"
+                },
+                "note": f"Found {len(compact_destinations)} destinations in {', '.join(city_names)}, sorted by rating (top 25)"
             }
         except Exception as e:
             return {
                 "success": False,
                 "error": str(e),
+                "destinations": [],
                 "city_names": [],
-                "analysis_log": [],
                 "target_city": city
             }
 

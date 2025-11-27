@@ -450,6 +450,38 @@ class DatasetHandler:
 
         return df.to_dict('records')
 
+    def filter_by_city_names(self, city_names: List[str]) -> pd.DataFrame:
+        """
+        Filter destinations by a list of city names using pandas
+
+        Args:
+            city_names: List of city names to filter by
+
+        Returns:
+            Filtered DataFrame with destinations in any of the specified cities
+        """
+        if not city_names:
+            return pd.DataFrame()  # Return empty DataFrame if no cities provided
+
+        # Find the city column
+        city_column = None
+        possible_columns = ['city', 'location', 'place', 'area', 'district']
+
+        for col in possible_columns:
+            if col in self.df.columns:
+                city_column = col
+                break
+
+        if not city_column:
+            return pd.DataFrame()  # Return empty if no city column found
+
+        # Normalize city names for case-insensitive comparison
+        normalized_city_names = [city.strip().lower() for city in city_names]
+
+        # Filter using pandas
+        mask = self.df[city_column].str.strip().str.lower().isin(normalized_city_names)
+        return self.df[mask].copy()
+
     def get_summary_stats(self) -> Dict[str, Any]:
         """Get summary statistics about the dataset"""
         stats = {
