@@ -380,8 +380,30 @@ class DestinationSuggester:
                 # Model has finished and provided final response
                 break
 
+        # Check if we hit max iterations with a pending function call
+        if (response.candidates and response.candidates[0].content.parts and
+            response.candidates[0].content.parts[0].function_call):
+            logger.warning(f"Max iterations ({max_iterations}) reached with pending function call")
+            return {
+                'success': False,
+                'error': 'No destinations found matching your criteria. Try adjusting your filters or search parameters.',
+                'query': query,
+                'tools_used': conversation_history,
+                'iterations': iteration
+            }
+
         # Extract final response
-        final_response = response.text
+        try:
+            final_response = response.text
+        except Exception as e:
+            logger.error(f"Error extracting final response: {e}")
+            return {
+                'success': False,
+                'error': 'Unable to process the search results. Please try again with different search criteria.',
+                'query': query,
+                'tools_used': conversation_history,
+                'iterations': iteration
+            }
 
         print(f"\n✨ Recommendations ready!\n")
 
@@ -499,7 +521,17 @@ Start by searching for destinations with the quantitative filters."""
             else:
                 break
 
-        return response.text
+        # Check if response still has a pending function call
+        if (response.candidates and response.candidates[0].content.parts and
+            response.candidates[0].content.parts[0].function_call):
+            logger.warning(f"Max iterations reached in chat with pending function call")
+            return "I apologize, but I couldn't complete your request. Please try rephrasing your question or being more specific."
+
+        try:
+            return response.text
+        except Exception as e:
+            logger.error(f"Error extracting chat response: {e}")
+            return "I apologize, but I encountered an error processing your message. Please try again."
 
     def analyze_destination(self,
                           destination_name: str) -> str:
