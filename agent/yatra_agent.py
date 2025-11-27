@@ -416,10 +416,10 @@ class DestinationSuggester:
         }
 
     def _create_query(self,
-                     destination_type: Optional[str],
+#                     destination_type: [str],
                      city: Optional[str],
-                     hours: Optional[float],
-                     budget: Optional[float]) -> str:
+#                     hours: Optional[float],
+#                     budget: Optional[float]) -> str:
         """Create a natural language query from user parameters"""
 
         # Create query based on whether city is specified
