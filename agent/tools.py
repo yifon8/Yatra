@@ -94,7 +94,7 @@ class TravelTools:
             },
             {
                 "name": "filter_by_city",
-                "description": "Filter destinations by city using LLM with web search to find adjacent cities, then using pandas to filter the destinations.csv dataset. First uses web search to find cities adjacent to the input city, then filters the full dataset using pandas to return only destinations in the input city or adjacent cities. Returns filtered destinations sorted by rating (descending), limited to top 25.",
+                "description": "Filter destinations by city using LLM with web search to find adjacent cities. First uses LLM with web search to find cities adjacent to the input city, then filters the full dataset using pandas to return ALL destinations in the input city or adjacent cities. Optionally filters by destination_type if provided. Does NOT apply rating or family-friendly filters - returns all matching destinations.",
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -466,11 +466,9 @@ Do not include any text before or after the JSON object."""
         Workflow:
         1. Use LLM with web search to find cities adjacent to the input city
         2. Add the input city to the list
-        3. Use pandas to filter the full dataset by those city names
-        4. Apply system filters (rating >4.0 or null, family-friendly)
-        5. Apply destination_type filter if provided
-        6. Sort by rating descending
-        7. Return top 25 destinations
+        3. Use pandas to filter the full dataset by those city names ONLY
+        4. Apply destination_type filter if provided (optional)
+        5. Return all matching destinations
 
         Args:
             city: Target city name (e.g., 'Delhi', 'Mumbai')
@@ -559,7 +557,7 @@ Do not include any text before or after the JSON object."""
                     "fallback": "Using only input city"
                 }
 
-            # Use pandas to filter destinations by city names
+            # Use pandas to filter destinations by city names ONLY
             filtered_df = self.dataset.filter_by_city_names(city_names)
 
             if filtered_df.empty:
@@ -573,40 +571,9 @@ Do not include any text before or after the JSON object."""
                     "note": "No destinations found in or near the specified city"
                 }
 
-            # Apply system-level filters
-            # 1. Rating filter (null or > 4.0)
-            filtered_df = self.dataset._apply_rating_filter_on_df(filtered_df, min_rating=4.0)
-
-            # 2. Family-friendly filter
-            filtered_df = self.dataset._apply_family_filter_on_df(filtered_df)
-
-            # 3. Apply destination_type filter if provided
+            # Apply destination_type filter if provided (optional)
             if destination_type:
                 filtered_df = self.dataset._apply_type_filter_on_df(filtered_df, destination_type)
-
-            # Sort by rating descending
-            # Find rating column
-            rating_column = None
-            possible_columns = ['rating', 'google_review_rating', 'review_rating',
-                              'user_rating', 'average_rating']
-            for col in possible_columns:
-                if col in filtered_df.columns:
-                    rating_column = col
-                    break
-
-            if rating_column:
-                # Convert to numeric and sort
-                filtered_df['_rating_numeric'] = pd.to_numeric(
-                    filtered_df[rating_column], errors='coerce'
-                )
-                # Sort: NaN values last, then by rating descending
-                filtered_df = filtered_df.sort_values(
-                    by='_rating_numeric', ascending=False, na_position='last'
-                )
-                filtered_df = filtered_df.drop(columns=['_rating_numeric'])
-
-            # Limit to top 25
-            filtered_df = filtered_df.head(25)
 
             # Convert to list of dictionaries
             destinations = self.dataset.to_dict_list(filtered_df)
@@ -634,11 +601,10 @@ Do not include any text before or after the JSON object."""
                 "target_city": city,
                 "analysis": analysis,
                 "filters_applied": {
-                    "system_filters": "Rating >4.0 or null, Family-friendly",
                     "city_filter": city_names,
                     "type": destination_type or "all"
                 },
-                "note": f"Found {len(compact_destinations)} destinations in {', '.join(city_names)}, sorted by rating (top 25)"
+                "note": f"Found {len(compact_destinations)} destinations in {', '.join(city_names)}"
             }
         except Exception as e:
             return {
