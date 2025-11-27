@@ -210,10 +210,20 @@ class TravelTools:
                 }
                 compact_destinations.append(compact_dest)
 
+            # Limit to 100 destinations to prevent payload overflow (finish_reason: 12 error)
+            # This gives the agent enough options while keeping the response size manageable
+            total_matching = len(compact_destinations)
+            max_results = 100
+            if len(compact_destinations) > max_results:
+                compact_destinations = compact_destinations[:max_results]
+                note_suffix = f" Limited to {max_results} destinations to manage payload size (total matching: {total_matching})."
+            else:
+                note_suffix = ""
+
             return {
                 "success": True,
-                "count": len(destinations),
-                "total_matching": len(destinations),
+                "count": len(compact_destinations),
+                "total_matching": total_matching,
                 "destinations": compact_destinations,
                 "filters_applied": {
                     "system_filters": "Rating >4.0 or null, Family-friendly",
@@ -221,7 +231,7 @@ class TravelTools:
                     "max_budget": max_budget or "unlimited",
                     "max_hours": max_hours or "unlimited"
                 },
-                "note": f"Returning all {len(compact_destinations)} matching destinations with system filters applied (family-friendly, rating >= 4.0). If user specified a city, call filter_by_city with these results."
+                "note": f"Returning {len(compact_destinations)} matching destinations with system filters applied (family-friendly, rating >= 4.0). If user specified a city, call filter_by_city with these results.{note_suffix}"
             }
         except Exception as e:
             return {
