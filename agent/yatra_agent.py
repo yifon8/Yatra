@@ -422,34 +422,33 @@ class DestinationSuggester:
                      budget: Optional[float]) -> str:
         """Create a natural language query from user parameters"""
 
-        # Build filter description
-        filter_parts = []
-        if destination_type:
-            filter_parts.append(f"{destination_type} destinations")
-        else:
-            filter_parts.append("destinations")
-
-        if hours is not None:
-            hours_str = f"{hours:g}"
-            filter_parts.append(f"visit duration within {hours_str} hours")
-
-        if budget is not None:
-            if budget == 0:
-                filter_parts.append("free (no cost)")
-            else:
-                filter_parts.append(f"budget around ₹{budget:,.0f}")
-
-        filters_desc = ", ".join(filter_parts)
-
         # Create query based on whether city is specified
         if city is not None:
-            # Build the filter_by_city instruction (only accepts city parameter)
-            filter_instruction = f'Use the filter_by_city tool with city="{city}".'
+            # For city-based searches, always use "cities" in the query
+            # Provide proper workflow instructions
+            query = f"""I need help finding cities in or next to {city}, India.
 
-            query = f"""I need help finding {filters_desc} in or near {city}, India.
-
-{filter_instruction}"""
+Use the filter_by_city tool with city="{city}"."""
         else:
+            # Build filter description for non-city queries
+            filter_parts = []
+            if destination_type:
+                filter_parts.append(f"{destination_type} destinations")
+            else:
+                filter_parts.append("destinations")
+
+            if hours is not None:
+                hours_str = f"{hours:g}"
+                filter_parts.append(f"visit duration within {hours_str} hours")
+
+            if budget is not None:
+                if budget == 0:
+                    filter_parts.append("free (no cost)")
+                else:
+                    filter_parts.append(f"budget around ₹{budget:,.0f}")
+
+            filters_desc = ", ".join(filter_parts)
+
             query = f"I'm looking for travel destination recommendations in India: {filters_desc}."
             query += "\n\nPlease use the available tools to search the dataset and provide me with your top 3 recommendations with reasoning."
 

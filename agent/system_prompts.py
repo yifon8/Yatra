@@ -28,7 +28,7 @@ WORKFLOW FOR FILTERING:
 Always follow this exact workflow to ensure proper filtering:
 
 1. FIRST: Call search_destinations_quantitative with the user's filters:
-   - destination_type (REQUIRED: beach, mountain, heritage, or wildlife)
+   - destination_type (optional: beach, mountain, heritage, or wildlife - omit to search all types)
    - max_budget (optional)
    - max_hours (optional, for visit duration)
    - This automatically applies system filters (family-friendly + rating >= 4.0)
