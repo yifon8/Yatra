@@ -425,10 +425,25 @@ class DestinationSuggester:
         # Create query based on whether city is specified
         if city is not None:
             # For city-based searches, always use "cities" in the query
-            # Provide proper workflow instructions
-            query = f"""I need help finding cities in or next to {city}, India.
+            # But also include destination type and other filters
+            query = f"I need help finding cities in or next to {city}, India.\n"
 
-Use the filter_by_city tool with city="{city}"."""
+            # Add filter details
+            if destination_type:
+                query += f"\nI'm interested in {destination_type} destinations."
+
+            if hours is not None:
+                hours_str = f"{hours:g}"
+                query += f"\nVisit duration: {hours_str} hours."
+
+            if budget is not None:
+                if budget == 0:
+                    query += f"\nBudget: Free (no cost)."
+                else:
+                    query += f"\nBudget: around ₹{budget:,.0f}."
+
+            # Add tool instruction
+            query += f'\n\nUse the filter_by_city tool with city="{city}".'
         else:
             # Build filter description for non-city queries
             filter_parts = []
