@@ -443,11 +443,8 @@ class DestinationSuggester:
 
         # Create query based on whether city is specified
         if city is not None:
-            # Build the filter_by_city instruction
-            if destination_type:
-                filter_instruction = f'Use the filter_by_city tool with city="{city}" and destination_type="{destination_type}".'
-            else:
-                filter_instruction = f'Use the filter_by_city tool with city="{city}".'
+            # Build the filter_by_city instruction (only accepts city parameter)
+            filter_instruction = f'Use the filter_by_city tool with city="{city}".'
 
             query = f"""I need help finding {filters_desc} in or near {city}, India.
 
