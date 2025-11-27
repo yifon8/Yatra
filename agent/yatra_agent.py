@@ -258,10 +258,30 @@ class DestinationSuggester:
                         'iterations': iteration
                     }
 
-            # Check if model wants to use tools
-            if response.candidates[0].content.parts[0].function_call:
-                # Extract function call
-                function_call = response.candidates[0].content.parts[0].function_call
+            # Check if model wants to use tools (check any part, not just parts[0])
+            has_function_call = any(
+                hasattr(part, 'function_call') and part.function_call
+                for part in response.candidates[0].content.parts
+            )
+
+            if has_function_call:
+                # Extract function call - find the part that has it
+                function_call = None
+                for part in response.candidates[0].content.parts:
+                    if hasattr(part, 'function_call') and part.function_call:
+                        function_call = part.function_call
+                        break
+
+                if not function_call:
+                    logger.error("Function call detected but couldn't extract it")
+                    return {
+                        'success': False,
+                        'error': 'Unable to process the request. Please try again.',
+                        'query': query,
+                        'tools_used': conversation_history,
+                        'iterations': iteration
+                    }
+
                 tool_name = function_call.name
                 tool_params = dict(function_call.args)
 
@@ -381,16 +401,20 @@ class DestinationSuggester:
                 break
 
         # Check if we hit max iterations with a pending function call
-        if (response.candidates and response.candidates[0].content.parts and
-            response.candidates[0].content.parts[0].function_call):
-            logger.warning(f"Max iterations ({max_iterations}) reached with pending function call")
-            return {
-                'success': False,
-                'error': 'No destinations found matching your criteria. Try adjusting your filters or search parameters.',
-                'query': query,
-                'tools_used': conversation_history,
-                'iterations': iteration
-            }
+        if response.candidates and response.candidates[0].content.parts:
+            has_pending_call = any(
+                hasattr(part, 'function_call') and part.function_call
+                for part in response.candidates[0].content.parts
+            )
+            if has_pending_call:
+                logger.warning(f"Max iterations ({max_iterations}) reached with pending function call")
+                return {
+                    'success': False,
+                    'error': 'No destinations found matching your criteria. Try adjusting your filters or search parameters.',
+                    'query': query,
+                    'tools_used': conversation_history,
+                    'iterations': iteration
+                }
 
         # Extract final response - check if response contains text
         try:
@@ -552,8 +576,24 @@ class DestinationSuggester:
                 logger.warning(f"Empty response during chat tool calling at iteration {iteration}")
                 return "I apologize, but I couldn't find any relevant information to answer your question."
 
-            if response.candidates[0].content.parts[0].function_call:
-                function_call = response.candidates[0].content.parts[0].function_call
+            # Check if any part has a function call
+            has_function_call = any(
+                hasattr(part, 'function_call') and part.function_call
+                for part in response.candidates[0].content.parts
+            )
+
+            if has_function_call:
+                # Extract function call - find the part that has it
+                function_call = None
+                for part in response.candidates[0].content.parts:
+                    if hasattr(part, 'function_call') and part.function_call:
+                        function_call = part.function_call
+                        break
+
+                if not function_call:
+                    logger.warning("Function call detected but couldn't extract it in chat")
+                    return "I apologize, but I couldn't process the tool call properly. Please try again."
+
                 tool_name = function_call.name
                 tool_params = dict(function_call.args)
 
@@ -572,10 +612,14 @@ class DestinationSuggester:
                 break
 
         # Check if response still has a pending function call
-        if (response.candidates and response.candidates[0].content.parts and
-            response.candidates[0].content.parts[0].function_call):
-            logger.warning(f"Max iterations reached in chat with pending function call")
-            return "I apologize, but I couldn't complete your request. Please try rephrasing your question or being more specific."
+        if response.candidates and response.candidates[0].content.parts:
+            has_pending_call = any(
+                hasattr(part, 'function_call') and part.function_call
+                for part in response.candidates[0].content.parts
+            )
+            if has_pending_call:
+                logger.warning(f"Max iterations reached in chat with pending function call")
+                return "I apologize, but I couldn't complete your request. Please try rephrasing your question or being more specific."
 
         try:
             # Verify the response has valid text content
