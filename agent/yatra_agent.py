@@ -443,16 +443,15 @@ class DestinationSuggester:
 
         # Create query based on whether city is specified
         if city is not None:
+            # Build the filter_by_city instruction
+            if destination_type:
+                filter_instruction = f'Use the filter_by_city tool with city="{city}" and destination_type="{destination_type}".'
+            else:
+                filter_instruction = f'Use the filter_by_city tool with city="{city}".'
+
             query = f"""I need help finding {filters_desc} in or near {city}, India.
 
-IMPORTANT: Use this workflow:
-1. First, use search_destinations_quantitative to find all matching {filters_desc}
-2. Then, use filter_by_city with the destination names and city="{city}" to get the list of city names (including {city} and adjacent cities)
-3. Filter the destinations to keep only those where the city field matches any city in the returned list
-4. Sort by rating (descending) and select the top 25
-5. Provide your top 3 recommendations with reasoning
-
-Start by searching for destinations with the quantitative filters."""
+{filter_instruction}"""
         else:
             query = f"I'm looking for travel destination recommendations in India: {filters_desc}."
             query += "\n\nPlease use the available tools to search the dataset and provide me with your top 3 recommendations with reasoning."
