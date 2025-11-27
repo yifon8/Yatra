@@ -334,7 +334,7 @@ class TravelTools:
 
             # Configure Gemini with grounding for web search
             model = genai.GenerativeModel(
-                model_name='gemini-2.0-flash-exp',
+                model_name='gemini-2.5-flash-lite',
                 generation_config=genai.GenerationConfig(
                     temperature=0.0  # Deterministic responses
                 )
