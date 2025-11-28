@@ -9,6 +9,7 @@ import os
 import json
 import logging
 import time
+import pandas as pd
 
 from .dataset_handler import DatasetHandler
 from .tools import TravelTools, format_tool_result
