@@ -10,6 +10,8 @@ import os
 import sys
 from typing import Dict, Any, List
 import pandas as pd
+import uuid
+from datetime import datetime, timedelta
 
 from agent import DestinationSuggester
 
@@ -19,6 +21,31 @@ CORS(app, supports_credentials=True)
 
 # Initialize the agent
 agent = None
+
+# Server-side cache for storing destination results
+# Format: {session_id: {'destinations': [...], 'current_page': 0, 'expires': datetime}}
+destinations_cache = {}
+
+# Cache cleanup interval
+CACHE_EXPIRY_HOURS = 2
+
+
+def clean_expired_cache():
+    """Remove expired entries from the cache"""
+    now = datetime.now()
+    expired_keys = [
+        key for key, value in destinations_cache.items()
+        if value['expires'] < now
+    ]
+    for key in expired_keys:
+        del destinations_cache[key]
+
+
+def get_or_create_session_id():
+    """Get existing session ID or create a new one"""
+    if 'search_session_id' not in session:
+        session['search_session_id'] = str(uuid.uuid4())
+    return session['search_session_id']
 
 
 def initialize_agent():
@@ -206,9 +233,16 @@ def suggest_destinations():
         # Sort destinations by rating (descending)
         sorted_destinations = sort_destinations_by_rating(all_destinations)
 
-        # Store sorted destinations in session for pagination
-        session['sorted_destinations'] = sorted_destinations
-        session['current_page'] = 0
+        # Clean up expired cache entries
+        clean_expired_cache()
+
+        # Get or create session ID and store results in server-side cache
+        session_id = get_or_create_session_id()
+        destinations_cache[session_id] = {
+            'destinations': sorted_destinations,
+            'current_page': 0,
+            'expires': datetime.now() + timedelta(hours=CACHE_EXPIRY_HOURS)
+        }
 
         # Get first 3 destinations
         page_size = 3
@@ -256,15 +290,19 @@ def get_more_destinations():
         Next 3 destinations from the sorted list
     """
     try:
-        # Get sorted destinations from session
-        sorted_destinations = session.get('sorted_destinations', [])
-        current_page = session.get('current_page', 0)
+        # Get session ID
+        session_id = session.get('search_session_id')
 
-        if not sorted_destinations:
+        if not session_id or session_id not in destinations_cache:
             return jsonify({
                 'success': False,
                 'error': 'No active search. Please submit a new search first.'
             }), 400
+
+        # Get cached data
+        cache_entry = destinations_cache[session_id]
+        sorted_destinations = cache_entry['destinations']
+        current_page = cache_entry['current_page']
 
         # Calculate next page
         page_size = 3
@@ -289,8 +327,8 @@ def get_more_destinations():
         # Check if this is the last batch
         is_last_batch = not has_more and len(displayed_destinations) > 0
 
-        # Update session
-        session['current_page'] = next_page
+        # Update cache
+        cache_entry['current_page'] = next_page
 
         return jsonify({
             'success': True,
