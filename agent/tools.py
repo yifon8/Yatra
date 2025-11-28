@@ -9,6 +9,7 @@ import json
 import google.generativeai as genai
 import os
 import pandas as pd
+import logging
 
 
 class TravelTools:
@@ -523,30 +524,43 @@ Do not include any text before or after the JSON object."""
             )
 
             # Create prompt for LLM to find adjacent cities
-            prompt = f"""You are identifying cities adjacent to a target city in India.
+            prompt = f"""You are identifying cities that are geographically adjacent to or part of the metropolitan area of a target city in India.
 
 Target City: {city}, India
 
-Please search the web for information about cities adjacent to or near {city}, focusing on:
-1. Cities in the same metropolitan area
-2. Neighboring cities with shared border
-3. Cities commonly visited as day trips from {city}
-4. Satellite cities or neighboring districts
+IMPORTANT: Search the web and identify ALL cities that are:
+1. Part of the {city} metropolitan area or region (e.g., for Mumbai: Navi Mumbai, Thane, Kalyan, Mira-Bhayandar, Vasai-Virar)
+2. Neighboring cities that share a border with {city}
+3. Satellite cities or suburbs of {city}
+4. Cities within 50km that are commonly considered part of the greater {city} area
+
+SEARCH STRATEGY:
+- Search for "{city} metropolitan area cities"
+- Search for "{city} neighboring cities"
+- Search for "cities near {city}"
+- Search for "{city} suburbs satellite cities"
 
 PRIORITIZE information from:
-- Wikipedia articles about {city} metropolitan area
+- Wikipedia articles about the {city} metropolitan area or region
 - Official state tourism websites
-- Geographic databases
-- Google Maps or similar mapping services
+- Geographic databases and maps
+- Government urban planning documents
 
-Based on the web search results, provide a list of city names that are in or adjacent to {city}.
+EXAMPLES of what we're looking for:
+- For Mumbai: Navi Mumbai, Thane, Kalyan, Panvel, Mira-Bhayandar, Vasai-Virar, Bhiwandi
+- For Delhi: Gurgaon, Noida, Ghaziabad, Faridabad, Greater Noida
+- For Bangalore: Mysore (nearby major city)
+
+Based on the web search results, provide a comprehensive list of city names that are geographically adjacent to or part of the {city} metropolitan area.
 
 Respond ONLY with a JSON object in this exact format:
 {{
     "adjacent_cities": ["City1", "City2", "City3", ...],
-    "reasoning": "Brief explanation of why these cities are considered adjacent",
+    "reasoning": "Brief explanation of why these cities are considered adjacent based on web search",
     "source_info": "Brief note about information sources used"
 }}
+
+CRITICAL: Return AT LEAST 3-5 adjacent cities if they exist. Do not return an empty list.
 
 Do not include any text before or after the JSON object."""
 
@@ -571,6 +585,11 @@ Do not include any text before or after the JSON object."""
                 # Get adjacent cities from LLM response
                 adjacent_cities = analysis.get("adjacent_cities", [])
 
+                # Log the LLM analysis for debugging
+                logger = logging.getLogger(__name__)
+                logger.info(f"LLM found adjacent cities for {city}: {adjacent_cities}")
+                logger.info(f"LLM reasoning: {analysis.get('reasoning', 'N/A')}")
+
                 # Always include the input city
                 city_names = [city.strip()]
                 city_names.extend([c.strip() for c in adjacent_cities if c.strip()])
@@ -578,8 +597,13 @@ Do not include any text before or after the JSON object."""
                 # Remove duplicates while preserving order
                 city_names = list(dict.fromkeys(city_names))
 
+                logger.info(f"Final city_names list: {city_names}")
+
             except json.JSONDecodeError as je:
                 # If LLM fails, just use the input city
+                logger = logging.getLogger(__name__)
+                logger.error(f"Failed to parse LLM response for city {city}: {str(je)}")
+                logger.error(f"Raw response: {response_text if 'response_text' in locals() else 'N/A'}")
                 city_names = [city.strip()]
                 analysis = {
                     "error": f"Failed to parse LLM response: {str(je)}",
@@ -587,6 +611,8 @@ Do not include any text before or after the JSON object."""
                 }
             except Exception as e:
                 # If LLM fails, just use the input city
+                logger = logging.getLogger(__name__)
+                logger.error(f"LLM analysis failed for city {city}: {str(e)}")
                 city_names = [city.strip()]
                 analysis = {
                     "error": f"LLM analysis failed: {str(e)}",
