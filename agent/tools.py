@@ -7,6 +7,7 @@ from typing import List, Dict, Any, Optional
 from .dataset_handler import DatasetHandler
 import json
 import google.generativeai as genai
+from google.generativeai import protos
 import os
 import pandas as pd
 import logging
@@ -24,6 +25,16 @@ class TravelTools:
             dataset_handler: Instance of DatasetHandler for data operations
         """
         self.dataset = dataset_handler
+
+    @staticmethod
+    def _get_google_search_tool():
+        """
+        Create Google Search tool for use with Gemini models
+
+        Returns:
+            List containing configured Google Search tool
+        """
+        return [protos.Tool(google_search=protos.GoogleSearch())]
 
     def get_tool_declarations(self) -> List[Dict[str, Any]]:
         """
@@ -437,7 +448,7 @@ Do not include any text before or after the JSON object."""
                         # Generate response with grounding (web search)
                         response = model.generate_content(
                             prompt,
-                            tools='google_search_retrieval'  # Enable web search grounding
+                            tools=TravelTools._get_google_search_tool()  # Enable web search with Google Search tool
                         )
 
                         # Parse the LLM response
@@ -611,7 +622,7 @@ Do not include any text before or after the JSON object."""
                     # Generate response with grounding (web search)
                     response = model.generate_content(
                         prompt,
-                        tools='google_search_retrieval'  # Enable web search grounding
+                        tools=TravelTools._get_google_search_tool()  # Enable web search with Google Search tool
                     )
 
                     # Parse the LLM response
