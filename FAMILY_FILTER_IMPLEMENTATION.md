@@ -38,9 +38,14 @@ model = genai.GenerativeModel(
 
 **Web Search Enabled**:
 ```python
+from google.generativeai import protos
+
+# Create Google Search tool using Google ADK
+google_search_tool = [protos.Tool(google_search=protos.GoogleSearch())]
+
 response = model.generate_content(
     prompt,
-    tools=[{'google_search': {}}]  # Enable web search grounding
+    tools=google_search_tool  # Enable web search grounding
 )
 ```
 
@@ -214,10 +219,15 @@ if any(keyword in description for keyword in keywords):
 
 ### After (LLM with Web Search)
 ```python
+from google.generativeai import protos
+
+# Create Google Search tool using Google ADK
+google_search_tool = [protos.Tool(google_search=protos.GoogleSearch())]
+
 # LLM-powered analysis with web search
 response = model.generate_content(
     prompt,
-    tools=[{'google_search': {}}]  # Web search enabled
+    tools=google_search_tool  # Web search enabled
 )
 
 # Structured analysis with confidence and reasoning
