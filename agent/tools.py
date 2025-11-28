@@ -298,26 +298,23 @@ class TravelTools:
 
         This implementation uses an LLM to search the web for information about
         each destination and determine if it's suitable for families with small children.
-        The LLM examines the top 2 web results for specific family-friendly terms:
-        1. "family-friendly" or "family friendly"
-        2. "suitable for children"
-        3. "playground"
-        4. "bring your whole family"
-        5. "strollers allowed"
-        6. "kid-friendly"
-        7. "kids welcome"
-        8. "safe for kids"
-        9. "perfect for families"
-        10. "children's activities"
-        11. "family activities"
-        12. "all ages welcome"
-        13. "toddler-friendly"
-        14. "baby-friendly"
-        15. "suitable for all ages"
 
-        If ANY of these terms are found in the top 2 web results, the destination
-        is marked as family-friendly. The LLM also evaluates general factors like
-        activities, safety, amenities, and educational value.
+        INCLUSIVE APPROACH:
+        The LLM marks destinations as family-friendly if there are ANY positive indicators:
+        - Popular tourist destination or landmark
+        - Safe and accessible location
+        - Activities that families or children would enjoy
+        - Educational or cultural value
+        - Natural beauty or scenic views
+        - Historical or architectural significance
+        - Recreational facilities or attractions
+        - Mentioned as a tourist attraction in official sources
+        - Any explicit family-friendly language or mentions
+        - General suitability for visitors of all ages
+
+        Destinations are marked as NOT family-friendly only if there are explicit
+        safety concerns for children or age-restricted content. When in doubt,
+        the filter defaults to including the destination.
 
         The LLM prioritizes official sources like state tourism board websites and Wikipedia.
 
@@ -396,41 +393,34 @@ class TravelTools:
 
 Destination to analyze: {location_context}
 
-Please search the web for information about this destination and examine the TOP 2 web result pages.
+Please search the web for information about this destination.
 
-SPECIFIC SEARCH CRITERIA - Look for these exact terms and phrases in the web results:
-1. "family-friendly" or "family friendly"
-2. "suitable for children"
-3. "playground"
-4. "bring your whole family"
-5. "strollers allowed"
-6. "kid-friendly"
-7. "kids welcome"
-8. "safe for kids"
-9. "perfect for families"
-10. "children's activities"
-11. "family activities"
-12. "all ages welcome"
-13. "toddler-friendly"
-14. "baby-friendly"
-15. "suitable for all ages"
-
-ALSO consider these factors:
-- Activities available at this destination
-- Safety for children
-- Amenities for families (restrooms, food options, accessibility)
-- Educational or entertainment value for children
+EVALUATION CRITERIA - Consider ANY of the following positive indicators:
+1. Popular tourist destination or landmark
+2. Safe and accessible location
+3. Activities that families or children would enjoy
+4. Educational or cultural value
+5. Natural beauty or scenic views
+6. Historical or architectural significance
+7. Recreational facilities or attractions
+8. Mentioned as a tourist attraction in official sources
+9. Any explicit family-friendly language or mentions
+10. General suitability for visitors of all ages
 
 PRIORITIZE information from:
-- Official state tourism board websites (e.g., incredibleindia.org, state tourism sites)
-- Wikipedia
+- Official tourism websites (incredibleindia.org, state tourism sites)
+- Wikipedia and travel guides
 - Official destination websites
-- Reputable travel sites
+- Reputable travel review sites
 
-DECISION LOGIC:
-- If ANY of the top 2 web result pages contain at least ONE of the specific search terms listed above, set "is_family_friendly" to TRUE
-- Additionally evaluate based on the general factors (activities, safety, amenities, educational value)
+DECISION LOGIC (INCLUSIVE APPROACH):
+- Mark as "is_family_friendly": TRUE if you find ANY positive indicators (safe, popular, interesting activities, cultural/educational value, natural beauty, etc.)
+- Mark as "is_family_friendly": TRUE for well-known tourist destinations unless there are specific safety concerns
+- Mark as "is_family_friendly": FALSE only if you find explicit safety concerns for children or age-restricted content
+- When in doubt, default to TRUE - it's better to include destinations that might be suitable
 - This applies to ALL destination types including beaches, mountains, heritage sites, and wildlife destinations
+
+IMPORTANT: Be INCLUSIVE rather than exclusive. Most tourist destinations in India are suitable for families unless there are specific concerns.
 
 Based on the web search results, determine if this destination is suitable for families with small children (ages 3-12).
 
@@ -438,10 +428,9 @@ Respond ONLY with a JSON object in this exact format:
 {{
     "is_family_friendly": true/false,
     "confidence": "high/medium/low",
-    "reasoning": "Brief explanation based on web search findings and whether specific terms were found",
+    "reasoning": "Brief explanation of why this destination is/isn't suitable for families",
     "key_activities": ["activity1", "activity2", "activity3"],
-    "concerns": ["concern1", "concern2"] or [],
-    "found_terms": ["list of specific terms found from the search criteria"] or []
+    "concerns": ["concern1", "concern2"] or []
 }}
 
 Do not include any text before or after the JSON object."""
@@ -472,8 +461,7 @@ Do not include any text before or after the JSON object."""
                         "confidence": analysis.get("confidence", "unknown"),
                         "reasoning": analysis.get("reasoning", ""),
                         "key_activities": analysis.get("key_activities", []),
-                        "concerns": analysis.get("concerns", []),
-                        "found_terms": analysis.get("found_terms", [])
+                        "concerns": analysis.get("concerns", [])
                     })
 
                     # Add to family-friendly list if deemed suitable
@@ -483,8 +471,7 @@ Do not include any text before or after the JSON object."""
                             "confidence": analysis.get("confidence", "unknown"),
                             "reasoning": analysis.get("reasoning", ""),
                             "key_activities": analysis.get("key_activities", []),
-                            "concerns": analysis.get("concerns", []),
-                            "found_terms": analysis.get("found_terms", [])
+                            "concerns": analysis.get("concerns", [])
                         }
                         family_friendly.append(details)
 

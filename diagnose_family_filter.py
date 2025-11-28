@@ -89,7 +89,6 @@ def main():
             print(f"   Is Family-Friendly: {entry.get('is_family_friendly')}")
             print(f"   Confidence: {entry.get('confidence')}")
             print(f"   Reasoning: {entry.get('reasoning')}")
-            print(f"   Found Terms: {entry.get('found_terms', [])}")
             print(f"   Key Activities: {entry.get('key_activities', [])}")
             print(f"   Concerns: {entry.get('concerns', [])}")
         elif entry.get('status') == 'error':
