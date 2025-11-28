@@ -67,10 +67,14 @@ def extract_destinations_from_tools(tools_used: List[Dict]) -> List[Dict]:
     all_destinations = []
 
     for tool_call in tools_used:
-        if tool_call.get('tool') == 'search_destinations_quantitative':
-            result = tool_call.get('result', {})
+        tool_name = tool_call.get('tool')
+        result = tool_call.get('result', {})
+
+        # Extract destinations from various tool types
+        if tool_name in ['search_destinations_quantitative', 'filter_by_family_friendly', 'filter_by_city']:
             destinations = result.get('destinations', [])
-            all_destinations.extend(destinations)
+            if destinations:
+                all_destinations = destinations  # Replace with latest filtered results
 
     return all_destinations
 
