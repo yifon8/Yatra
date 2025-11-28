@@ -40,7 +40,7 @@ model = genai.GenerativeModel(
 ```python
 response = model.generate_content(
     prompt,
-    tools='google_search_retrieval'  # Enable web search grounding
+    tools=[{'google_search': {}}]  # Enable web search grounding
 )
 ```
 
@@ -217,7 +217,7 @@ if any(keyword in description for keyword in keywords):
 # LLM-powered analysis with web search
 response = model.generate_content(
     prompt,
-    tools='google_search_retrieval'  # Web search enabled
+    tools=[{'google_search': {}}]  # Web search enabled
 )
 
 # Structured analysis with confidence and reasoning
