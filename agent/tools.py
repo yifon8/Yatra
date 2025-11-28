@@ -468,7 +468,7 @@ Respond ONLY with a JSON object in this exact format:
 {{
     "is_family_friendly": true/false,
     "confidence": "high/medium/low",
-    "reasoning": "Brief explanation of why this destination is included/excluded",
+    "reasoning": "One short sentence (max 10-15 words) explaining why this is suitable/unsuitable for families",
     "key_activities": ["activity1", "activity2", "activity3"],
     "concerns": ["concern1", "concern2"] or []
 }}
