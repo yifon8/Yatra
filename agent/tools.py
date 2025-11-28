@@ -6,8 +6,8 @@ Function declarations and implementations for the agent
 from typing import List, Dict, Any, Optional
 from .dataset_handler import DatasetHandler
 import json
-import google.generativeai as genai
-from google.generativeai import protos
+from google import genai
+from google.genai import types
 import os
 import pandas as pd
 import logging
@@ -34,7 +34,7 @@ class TravelTools:
         Returns:
             List containing configured Google Search tool
         """
-        return [protos.Tool(google_search=protos.GoogleSearch())]
+        return [types.Tool(google_search=types.GoogleSearch())]
 
     def get_tool_declarations(self) -> List[Dict[str, Any]]:
         """
@@ -369,13 +369,8 @@ class TravelTools:
                     'method': 'llm_with_web_search'
                 }
 
-            # Configure Gemini with grounding for web search
-            model = genai.GenerativeModel(
-                model_name='gemini-2.5-flash-lite',
-                generation_config=genai.GenerationConfig(
-                    temperature=0.0  # Deterministic responses
-                )
-            )
+            # Configure Gemini client with API key
+            client = genai.Client(api_key=os.environ.get('GOOGLE_API_KEY'))
 
             family_friendly = []
             analysis_log = []
@@ -446,9 +441,14 @@ Do not include any text before or after the JSON object."""
                 for attempt in range(max_retries + 1):
                     try:
                         # Generate response with grounding (web search)
-                        response = model.generate_content(
-                            prompt,
+                        config = types.GenerateContentConfig(
+                            temperature=0.0,  # Deterministic responses
                             tools=TravelTools._get_google_search_tool()  # Enable web search with Google Search tool
+                        )
+                        response = client.models.generate_content(
+                            model='gemini-2.5-flash-lite',
+                            contents=prompt,
+                            config=config
                         )
 
                         # Parse the LLM response
@@ -562,13 +562,8 @@ Do not include any text before or after the JSON object."""
             Dictionary with filtered destinations
         """
         try:
-            # Configure Gemini with grounding for web search
-            model = genai.GenerativeModel(
-                model_name='gemini-2.5-flash-lite',
-                generation_config=genai.GenerationConfig(
-                    temperature=0.0  # Deterministic responses
-                )
-            )
+            # Configure Gemini client with API key
+            client = genai.Client(api_key=os.environ.get('GOOGLE_API_KEY'))
 
             # Create prompt for LLM to find adjacent cities
             prompt = f"""You are identifying cities that are geographically adjacent to or part of the metropolitan area of a target city in India.
@@ -620,9 +615,14 @@ Do not include any text before or after the JSON object."""
             for attempt in range(max_retries + 1):
                 try:
                     # Generate response with grounding (web search)
-                    response = model.generate_content(
-                        prompt,
+                    config = types.GenerateContentConfig(
+                        temperature=0.0,  # Deterministic responses
                         tools=TravelTools._get_google_search_tool()  # Enable web search with Google Search tool
+                    )
+                    response = client.models.generate_content(
+                        model='gemini-2.5-flash-lite',
+                        contents=prompt,
+                        config=config
                     )
 
                     # Parse the LLM response
