@@ -360,7 +360,7 @@ class TravelTools:
 
             # Configure Gemini with grounding for web search
             model = genai.GenerativeModel(
-                model_name='gemini-2.0-flash-exp',
+                model_name='gemini-2.5-flash-lite',
                 generation_config=genai.GenerationConfig(
                     temperature=0.0  # Deterministic responses
                 )
@@ -437,7 +437,7 @@ Do not include any text before or after the JSON object."""
                         # Generate response with grounding (web search)
                         response = model.generate_content(
                             prompt,
-                            tools=[{'google_search': {}}]  # Enable web search grounding
+                            tools='google_search_retrieval'  # Enable web search grounding
                         )
 
                         # Parse the LLM response
@@ -553,7 +553,7 @@ Do not include any text before or after the JSON object."""
         try:
             # Configure Gemini with grounding for web search
             model = genai.GenerativeModel(
-                model_name='gemini-2.0-flash-exp',
+                model_name='gemini-2.5-flash-lite',
                 generation_config=genai.GenerationConfig(
                     temperature=0.0  # Deterministic responses
                 )
@@ -611,7 +611,7 @@ Do not include any text before or after the JSON object."""
                     # Generate response with grounding (web search)
                     response = model.generate_content(
                         prompt,
-                        tools=[{'google_search': {}}]  # Enable web search grounding
+                        tools='google_search_retrieval'  # Enable web search grounding
                     )
 
                     # Parse the LLM response
