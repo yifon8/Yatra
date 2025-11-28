@@ -80,7 +80,7 @@ class TravelTools:
             },
             {
                 "name": "filter_by_family_friendly",
-                "description": "Filter destinations to show only those suitable for families with small children. Considers safety, amenities, and child-friendly activities.",
+                "description": "Filter destinations to show only those suitable for families with small children. Uses a blacklist approach - keeps ALL destinations except those with explicit danger warnings or age restrictions like 'adults only', 'no children allowed', or 'dangerous terrain'.",
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -299,22 +299,18 @@ class TravelTools:
         This implementation uses an LLM to search the web for information about
         each destination and determine if it's suitable for families with small children.
 
-        INCLUSIVE APPROACH:
-        The LLM marks destinations as family-friendly if there are ANY positive indicators:
-        - Popular tourist destination or landmark
-        - Safe and accessible location
-        - Activities that families or children would enjoy
-        - Educational or cultural value
-        - Natural beauty or scenic views
-        - Historical or architectural significance
-        - Recreational facilities or attractions
-        - Mentioned as a tourist attraction in official sources
-        - Any explicit family-friendly language or mentions
-        - General suitability for visitors of all ages
+        BLACKLIST APPROACH (EXCLUSION-BASED):
+        The LLM keeps ALL destinations by default and only excludes destinations that have
+        explicit warnings or restrictions such as:
+        - "No children allowed" or "adults only"
+        - Explicit danger warnings for children (dangerous terrain, unsafe for kids)
+        - Age restrictions that exclude young children
+        - Extreme activities that explicitly state they're unsafe for children
+        - Nightlife-only venues (bars, clubs, casinos) with no family-appropriate activities
 
-        Destinations are marked as NOT family-friendly only if there are explicit
-        safety concerns for children or age-restricted content. When in doubt,
-        the filter defaults to including the destination.
+        The filter is VERY PERMISSIVE - it only excludes destinations when there are
+        clear, explicit reasons why children cannot or should not visit. When in doubt,
+        the filter defaults to INCLUDING the destination.
 
         The LLM prioritizes official sources like state tourism board websites and Wikipedia.
 
@@ -389,23 +385,17 @@ class TravelTools:
                 location_context = f"{name}, {city}, {state}, India" if city and state else f"{name}, India"
 
                 # Create prompt for LLM to analyze family-friendliness
-                prompt = f"""You are analyzing tourist destinations in India for family-friendliness.
+                prompt = f"""You are analyzing tourist destinations in India to identify those that should be EXCLUDED from a family-friendly list.
 
 Destination to analyze: {location_context}
 
 Please search the web for information about this destination.
 
-EVALUATION CRITERIA - Consider ANY of the following positive indicators:
-1. Popular tourist destination or landmark
-2. Safe and accessible location
-3. Activities that families or children would enjoy
-4. Educational or cultural value
-5. Natural beauty or scenic views
-6. Historical or architectural significance
-7. Recreational facilities or attractions
-8. Mentioned as a tourist attraction in official sources
-9. Any explicit family-friendly language or mentions
-10. General suitability for visitors of all ages
+EXCLUSION CRITERIA - Mark as NOT family-friendly ONLY if you find:
+1. Explicit age restrictions: "adults only", "no children allowed", "18+ only"
+2. Explicit danger warnings for children: "dangerous terrain for children", "unsafe for kids", "not suitable for small children"
+3. Age-restricted venues: bars, nightclubs, casinos with no family-appropriate activities
+4. Explicit safety warnings that children cannot visit safely
 
 PRIORITIZE information from:
 - Official tourism websites (incredibleindia.org, state tourism sites)
@@ -413,22 +403,23 @@ PRIORITIZE information from:
 - Official destination websites
 - Reputable travel review sites
 
-DECISION LOGIC (INCLUSIVE APPROACH):
-- Mark as "is_family_friendly": TRUE if you find ANY positive indicators (safe, popular, interesting activities, cultural/educational value, natural beauty, etc.)
-- Mark as "is_family_friendly": TRUE for well-known tourist destinations unless there are specific safety concerns
-- Mark as "is_family_friendly": FALSE only if you find explicit safety concerns for children or age-restricted content
-- When in doubt, default to TRUE - it's better to include destinations that might be suitable
-- This applies to ALL destination types including beaches, mountains, heritage sites, and wildlife destinations
+DECISION LOGIC (BLACKLIST/EXCLUSION APPROACH):
+- Mark as "is_family_friendly": TRUE by default for ALL destinations
+- Mark as "is_family_friendly": FALSE ONLY if you find explicit exclusion criteria listed above
+- When in doubt or information is unclear, default to TRUE
+- General tourist destinations, landmarks, beaches, mountains, heritage sites, wildlife areas should be TRUE unless there are explicit restrictions
+- Do NOT exclude destinations just because they don't explicitly mention being family-friendly
+- Do NOT exclude destinations just because of general safety precautions that apply to all visitors
 
-IMPORTANT: Be INCLUSIVE rather than exclusive. Most tourist destinations in India are suitable for families unless there are specific concerns.
+IMPORTANT: Be VERY PERMISSIVE. Only exclude destinations with clear, explicit restrictions or danger warnings specifically about children. Most tourist destinations in India are suitable for families by default.
 
-Based on the web search results, determine if this destination is suitable for families with small children (ages 3-12).
+Based on the web search results, determine if this destination should be EXCLUDED from a family-friendly list.
 
 Respond ONLY with a JSON object in this exact format:
 {{
     "is_family_friendly": true/false,
     "confidence": "high/medium/low",
-    "reasoning": "Brief explanation of why this destination is/isn't suitable for families",
+    "reasoning": "Brief explanation of why this destination is included/excluded",
     "key_activities": ["activity1", "activity2", "activity3"],
     "concerns": ["concern1", "concern2"] or []
 }}
