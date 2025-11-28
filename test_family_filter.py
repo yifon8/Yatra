@@ -16,11 +16,11 @@ def test_family_filter():
     # Initialize tools
     tools = TravelTools(dataset)
 
-    # Test with a few sample destinations
+    # Test with a mix of destination types including beaches
     test_destinations = [
         "India Gate",           # War memorial - should be family-friendly
-        "Akshardham Temple",    # Temple - likely family-friendly
-        "Waste to Wonder Park"  # Theme park - definitely family-friendly
+        "Goa Beaches",          # Beach - testing the beach filter fix
+        "Andaman Islands"       # Beach - testing the beach filter fix
     ]
 
     print("Testing family-friendly filter with LLM and web search...")
@@ -52,6 +52,8 @@ def test_family_filter():
                 print(f"Family-Friendly: {log_entry['is_family_friendly']}")
                 print(f"Confidence: {log_entry['confidence']}")
                 print(f"Reasoning: {log_entry['reasoning']}")
+                if log_entry.get('found_terms'):
+                    print(f"Found Terms: {', '.join(log_entry['found_terms'])}")
                 if log_entry.get('key_activities'):
                     print(f"Key Activities: {', '.join(log_entry['key_activities'])}")
                 if log_entry.get('concerns'):
@@ -74,6 +76,8 @@ def test_family_filter():
                 analysis = dest['family_friendly_analysis']
                 print(f"   Analysis Confidence: {analysis['confidence']}")
                 print(f"   Reasoning: {analysis['reasoning']}")
+                if analysis.get('found_terms'):
+                    print(f"   Found Terms: {', '.join(analysis['found_terms'])}")
                 if analysis.get('key_activities'):
                     print(f"   Key Activities: {', '.join(analysis['key_activities'][:3])}")
 

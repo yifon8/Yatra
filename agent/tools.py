@@ -297,6 +297,17 @@ class TravelTools:
 
         This implementation uses an LLM to search the web for information about
         each destination and determine if it's suitable for families with small children.
+        The LLM examines the top 2 web results for specific family-friendly terms:
+        - "family-friendly" or "family friendly"
+        - "suitable for children"
+        - "playground"
+        - "bring your whole family"
+        - "strollers allowed"
+
+        If ANY of these terms are found in the top 2 web results, the destination
+        is marked as family-friendly. The LLM also evaluates general factors like
+        activities, safety, amenities, and educational value.
+
         The LLM prioritizes official sources like state tourism board websites and Wikipedia.
 
         Args:
@@ -374,11 +385,20 @@ class TravelTools:
 
 Destination to analyze: {location_context}
 
-Please search the web for information about this destination, focusing on:
-1. Activities available at this destination
-2. Safety for children
-3. Amenities for families (restrooms, food options, accessibility)
-4. Educational or entertainment value for children
+Please search the web for information about this destination and examine the TOP 2 web result pages.
+
+SPECIFIC SEARCH CRITERIA - Look for these exact terms and phrases in the web results:
+1. "family-friendly" or "family friendly"
+2. "suitable for children"
+3. "playground"
+4. "bring your whole family"
+5. "strollers allowed"
+
+ALSO consider these factors:
+- Activities available at this destination
+- Safety for children
+- Amenities for families (restrooms, food options, accessibility)
+- Educational or entertainment value for children
 
 PRIORITIZE information from:
 - Official state tourism board websites (e.g., incredibleindia.org, state tourism sites)
@@ -386,15 +406,21 @@ PRIORITIZE information from:
 - Official destination websites
 - Reputable travel sites
 
+DECISION LOGIC:
+- If ANY of the top 2 web result pages contain at least ONE of the specific search terms listed above, set "is_family_friendly" to TRUE
+- Additionally evaluate based on the general factors (activities, safety, amenities, educational value)
+- This applies to ALL destination types including beaches, mountains, heritage sites, and wildlife destinations
+
 Based on the web search results, determine if this destination is suitable for families with small children (ages 3-12).
 
 Respond ONLY with a JSON object in this exact format:
 {{
     "is_family_friendly": true/false,
     "confidence": "high/medium/low",
-    "reasoning": "Brief explanation based on web search findings",
+    "reasoning": "Brief explanation based on web search findings and whether specific terms were found",
     "key_activities": ["activity1", "activity2", "activity3"],
-    "concerns": ["concern1", "concern2"] or []
+    "concerns": ["concern1", "concern2"] or [],
+    "found_terms": ["list of specific terms found from the search criteria"] or []
 }}
 
 Do not include any text before or after the JSON object."""
@@ -425,7 +451,8 @@ Do not include any text before or after the JSON object."""
                         "confidence": analysis.get("confidence", "unknown"),
                         "reasoning": analysis.get("reasoning", ""),
                         "key_activities": analysis.get("key_activities", []),
-                        "concerns": analysis.get("concerns", [])
+                        "concerns": analysis.get("concerns", []),
+                        "found_terms": analysis.get("found_terms", [])
                     })
 
                     # Add to family-friendly list if deemed suitable
@@ -435,7 +462,8 @@ Do not include any text before or after the JSON object."""
                             "confidence": analysis.get("confidence", "unknown"),
                             "reasoning": analysis.get("reasoning", ""),
                             "key_activities": analysis.get("key_activities", []),
-                            "concerns": analysis.get("concerns", [])
+                            "concerns": analysis.get("concerns", []),
+                            "found_terms": analysis.get("found_terms", [])
                         }
                         family_friendly.append(details)
 
