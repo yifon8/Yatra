@@ -12,6 +12,19 @@ import os
 import pandas as pd
 import logging
 import time
+import sys
+
+# Configure comprehensive logging
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout),
+        logging.FileHandler('yatra_debug.log', mode='w')
+    ]
+)
+
+logger = logging.getLogger(__name__)
 
 
 class TravelTools:
@@ -333,6 +346,11 @@ class TravelTools:
             Dictionary with family-friendly destinations and analysis
         """
         try:
+            logger.info(f"=" * 80)
+            logger.info(f"STARTING FAMILY-FRIENDLY FILTER")
+            logger.info(f"Total destinations to analyze: {len(destination_names)}")
+            logger.info(f"=" * 80)
+
             # Normalize destination_names - handle both strings and dicts
             normalized_names = []
             for item in destination_names:
@@ -361,6 +379,7 @@ class TravelTools:
             destination_names = normalized_names
 
             if not destination_names:
+                logger.warning("No destinations to filter")
                 return {
                     'success': True,
                     'count': 0,
@@ -369,16 +388,38 @@ class TravelTools:
                     'method': 'llm_with_web_search'
                 }
 
+            logger.info(f"Normalized destination names: {destination_names}")
+
             # Configure Gemini client with API key
-            client = genai.Client(api_key=os.environ.get('GOOGLE_API_KEY'))
+            api_key = os.environ.get('GOOGLE_API_KEY')
+            if not api_key:
+                logger.error("GOOGLE_API_KEY environment variable not set!")
+                return {
+                    'success': False,
+                    'error': 'GOOGLE_API_KEY environment variable not set',
+                    'destinations': [],
+                    'analysis_log': []
+                }
+
+            logger.info("Initializing Gemini client...")
+            client = genai.Client(api_key=api_key)
+            logger.info("Gemini client initialized successfully")
 
             family_friendly = []
             analysis_log = []
 
-            for name in destination_names:
+            start_time = time.time()
+
+            for idx, name in enumerate(destination_names, 1):
+                logger.info(f"\n{'=' * 80}")
+                logger.info(f"Processing destination {idx}/{len(destination_names)}: {name}")
+                logger.info(f"{'=' * 80}")
+                dest_start_time = time.time()
+
                 details = self.dataset.get_destination_details(name)
 
                 if not details:
+                    logger.warning(f"Destination '{name}' not found in dataset")
                     analysis_log.append({
                         "destination": name,
                         "status": "not_found",
@@ -390,6 +431,7 @@ class TravelTools:
                 city = details.get('city', '')
                 state = details.get('state', '')
                 location_context = f"{name}, {city}, {state}, India" if city and state else f"{name}, India"
+                logger.info(f"Location context: {location_context}")
 
                 # Create prompt for LLM to analyze family-friendliness
                 prompt = f"""You are analyzing tourist destinations in India to identify those that should be EXCLUDED from a family-friendly list.
@@ -440,27 +482,48 @@ Do not include any text before or after the JSON object."""
 
                 for attempt in range(max_retries + 1):
                     try:
+                        logger.info(f"Attempt {attempt + 1}/{max_retries + 1} for {name}")
+                        logger.info("Creating GenerateContentConfig with Google Search tool...")
+
                         # Generate response with grounding (web search)
                         config = types.GenerateContentConfig(
                             temperature=0.0,  # Deterministic responses
                             tools=TravelTools._get_google_search_tool()  # Enable web search with Google Search tool
                         )
+                        logger.debug(f"Config created: temperature=0.0, tools=Google Search")
+
+                        logger.info(f"Calling Gemini API (model: gemini-2.5-flash-lite) for {name}...")
+                        api_call_start = time.time()
+
                         response = client.models.generate_content(
                             model='gemini-2.5-flash-lite',
                             contents=prompt,
                             config=config
                         )
 
+                        api_call_duration = time.time() - api_call_start
+                        logger.info(f"API call completed in {api_call_duration:.2f} seconds")
+
                         # Parse the LLM response
+                        logger.debug("Parsing LLM response...")
                         response_text = response.text.strip()
+                        logger.debug(f"Response text length: {len(response_text)} characters")
+                        logger.debug(f"Response preview: {response_text[:200]}...")
 
                         # Extract JSON from response (handle markdown code blocks if present)
                         if '```json' in response_text:
+                            logger.debug("Extracting JSON from markdown code block (```json)")
                             response_text = response_text.split('```json')[1].split('```')[0].strip()
                         elif '```' in response_text:
+                            logger.debug("Extracting JSON from markdown code block (```)")
                             response_text = response_text.split('```')[1].split('```')[0].strip()
 
+                        logger.debug(f"Cleaned response text: {response_text[:300]}...")
+                        logger.info("Parsing JSON response...")
                         analysis = json.loads(response_text)
+                        logger.info(f"Successfully parsed JSON for {name}")
+                        logger.info(f"Analysis result: is_family_friendly={analysis.get('is_family_friendly')}, "
+                                   f"confidence={analysis.get('confidence')}")
 
                         # Log the analysis
                         analysis_log.append({
@@ -475,6 +538,7 @@ Do not include any text before or after the JSON object."""
 
                         # Add to family-friendly list if deemed suitable
                         if analysis.get("is_family_friendly", False):
+                            logger.info(f"✓ {name} is family-friendly! Adding to results.")
                             # Enrich destination details with LLM analysis
                             details['family_friendly_analysis'] = {
                                 "confidence": analysis.get("confidence", "unknown"),
@@ -483,11 +547,21 @@ Do not include any text before or after the JSON object."""
                                 "concerns": analysis.get("concerns", [])
                             }
                             family_friendly.append(details)
+                        else:
+                            logger.info(f"✗ {name} is NOT family-friendly. Excluding from results.")
+                            logger.info(f"Reasoning: {analysis.get('reasoning', 'N/A')}")
+
+                        dest_duration = time.time() - dest_start_time
+                        logger.info(f"Completed {name} in {dest_duration:.2f} seconds")
+                        logger.info(f"Progress: {idx}/{len(destination_names)} destinations processed, "
+                                   f"{len(family_friendly)} family-friendly so far")
 
                         analysis_success = True
                         break  # Success! Exit retry loop
 
                     except json.JSONDecodeError as je:
+                        logger.error(f"JSON parsing error for {name}: {str(je)}")
+                        logger.error(f"Raw response: {response_text[:500] if 'response_text' in locals() else 'No response'}")
                         analysis_log.append({
                             "destination": name,
                             "status": "error",
@@ -498,6 +572,7 @@ Do not include any text before or after the JSON object."""
 
                     except Exception as e:
                         error_str = str(e)
+                        logger.error(f"Error processing {name}: {error_str}")
 
                         # Check if this is a quota error (429)
                         is_quota_error = '429' in error_str or 'quota' in error_str.lower() or 'rate limit' in error_str.lower()
@@ -505,14 +580,12 @@ Do not include any text before or after the JSON object."""
                         if is_quota_error and attempt < max_retries:
                             # Retry with exponential backoff
                             delay = retry_delays[attempt]
-                            logger = logging.getLogger(__name__)
                             logger.warning(f"API quota error for destination {name} (attempt {attempt + 1}/{max_retries + 1}): {error_str}")
                             logger.info(f"Retrying in {delay} seconds...")
                             time.sleep(delay)
                             continue
                         else:
                             # Either not a quota error, or we've exhausted retries
-                            logger = logging.getLogger(__name__)
                             if is_quota_error:
                                 logger.error(f"API quota exceeded for destination {name} after {max_retries + 1} attempts")
                                 analysis_log.append({
@@ -529,6 +602,15 @@ Do not include any text before or after the JSON object."""
                                 })
                             break
 
+            total_duration = time.time() - start_time
+            logger.info(f"\n{'=' * 80}")
+            logger.info(f"FAMILY-FRIENDLY FILTER COMPLETE")
+            logger.info(f"Total time: {total_duration:.2f} seconds")
+            logger.info(f"Destinations processed: {len(destination_names)}")
+            logger.info(f"Family-friendly destinations found: {len(family_friendly)}")
+            logger.info(f"Average time per destination: {total_duration / len(destination_names):.2f} seconds")
+            logger.info(f"{'=' * 80}\n")
+
             return {
                 "success": True,
                 "count": len(family_friendly),
@@ -537,6 +619,7 @@ Do not include any text before or after the JSON object."""
                 "method": "llm_with_web_search"
             }
         except Exception as e:
+            logger.error(f"FATAL ERROR in filter_by_family_friendly: {str(e)}", exc_info=True)
             return {
                 "success": False,
                 "error": str(e),
