@@ -10,6 +10,7 @@ import google.generativeai as genai
 import os
 import pandas as pd
 import logging
+import time
 
 
 class TravelTools:
@@ -426,59 +427,96 @@ Respond ONLY with a JSON object in this exact format:
 
 Do not include any text before or after the JSON object."""
 
-                try:
-                    # Generate response with grounding (web search)
-                    response = model.generate_content(
-                        prompt,
-                        tools=[{'google_search_retrieval': {}}]  # Enable web search grounding
-                    )
+                # Retry logic with exponential backoff for API quota errors
+                max_retries = 3
+                retry_delays = [2, 4, 8]  # seconds
+                analysis_success = False
 
-                    # Parse the LLM response
-                    response_text = response.text.strip()
+                for attempt in range(max_retries + 1):
+                    try:
+                        # Generate response with grounding (web search)
+                        response = model.generate_content(
+                            prompt,
+                            tools=[{'google_search_retrieval': {}}]  # Enable web search grounding
+                        )
 
-                    # Extract JSON from response (handle markdown code blocks if present)
-                    if '```json' in response_text:
-                        response_text = response_text.split('```json')[1].split('```')[0].strip()
-                    elif '```' in response_text:
-                        response_text = response_text.split('```')[1].split('```')[0].strip()
+                        # Parse the LLM response
+                        response_text = response.text.strip()
 
-                    analysis = json.loads(response_text)
+                        # Extract JSON from response (handle markdown code blocks if present)
+                        if '```json' in response_text:
+                            response_text = response_text.split('```json')[1].split('```')[0].strip()
+                        elif '```' in response_text:
+                            response_text = response_text.split('```')[1].split('```')[0].strip()
 
-                    # Log the analysis
-                    analysis_log.append({
-                        "destination": name,
-                        "status": "analyzed",
-                        "is_family_friendly": analysis.get("is_family_friendly", False),
-                        "confidence": analysis.get("confidence", "unknown"),
-                        "reasoning": analysis.get("reasoning", ""),
-                        "key_activities": analysis.get("key_activities", []),
-                        "concerns": analysis.get("concerns", [])
-                    })
+                        analysis = json.loads(response_text)
 
-                    # Add to family-friendly list if deemed suitable
-                    if analysis.get("is_family_friendly", False):
-                        # Enrich destination details with LLM analysis
-                        details['family_friendly_analysis'] = {
+                        # Log the analysis
+                        analysis_log.append({
+                            "destination": name,
+                            "status": "analyzed",
+                            "is_family_friendly": analysis.get("is_family_friendly", False),
                             "confidence": analysis.get("confidence", "unknown"),
                             "reasoning": analysis.get("reasoning", ""),
                             "key_activities": analysis.get("key_activities", []),
                             "concerns": analysis.get("concerns", [])
-                        }
-                        family_friendly.append(details)
+                        })
 
-                except json.JSONDecodeError as je:
-                    analysis_log.append({
-                        "destination": name,
-                        "status": "error",
-                        "reason": f"Failed to parse LLM response: {str(je)}",
-                        "raw_response": response_text[:200] if 'response_text' in locals() else "No response"
-                    })
-                except Exception as e:
-                    analysis_log.append({
-                        "destination": name,
-                        "status": "error",
-                        "reason": f"LLM analysis failed: {str(e)}"
-                    })
+                        # Add to family-friendly list if deemed suitable
+                        if analysis.get("is_family_friendly", False):
+                            # Enrich destination details with LLM analysis
+                            details['family_friendly_analysis'] = {
+                                "confidence": analysis.get("confidence", "unknown"),
+                                "reasoning": analysis.get("reasoning", ""),
+                                "key_activities": analysis.get("key_activities", []),
+                                "concerns": analysis.get("concerns", [])
+                            }
+                            family_friendly.append(details)
+
+                        analysis_success = True
+                        break  # Success! Exit retry loop
+
+                    except json.JSONDecodeError as je:
+                        analysis_log.append({
+                            "destination": name,
+                            "status": "error",
+                            "reason": f"Failed to parse LLM response: {str(je)}",
+                            "raw_response": response_text[:200] if 'response_text' in locals() else "No response"
+                        })
+                        break  # Don't retry JSON errors
+
+                    except Exception as e:
+                        error_str = str(e)
+
+                        # Check if this is a quota error (429)
+                        is_quota_error = '429' in error_str or 'quota' in error_str.lower() or 'rate limit' in error_str.lower()
+
+                        if is_quota_error and attempt < max_retries:
+                            # Retry with exponential backoff
+                            delay = retry_delays[attempt]
+                            logger = logging.getLogger(__name__)
+                            logger.warning(f"API quota error for destination {name} (attempt {attempt + 1}/{max_retries + 1}): {error_str}")
+                            logger.info(f"Retrying in {delay} seconds...")
+                            time.sleep(delay)
+                            continue
+                        else:
+                            # Either not a quota error, or we've exhausted retries
+                            logger = logging.getLogger(__name__)
+                            if is_quota_error:
+                                logger.error(f"API quota exceeded for destination {name} after {max_retries + 1} attempts")
+                                analysis_log.append({
+                                    "destination": name,
+                                    "status": "error",
+                                    "reason": f"API quota exceeded after {max_retries + 1} attempts: {error_str}"
+                                })
+                            else:
+                                logger.error(f"LLM analysis failed for destination {name}: {error_str}")
+                                analysis_log.append({
+                                    "destination": name,
+                                    "status": "error",
+                                    "reason": f"LLM analysis failed: {error_str}"
+                                })
+                            break
 
             return {
                 "success": True,
@@ -562,60 +600,90 @@ CRITICAL: Return AT LEAST 3-5 adjacent cities if they exist. Do not return an em
 
 Do not include any text before or after the JSON object."""
 
-            try:
-                # Generate response with grounding (web search)
-                response = model.generate_content(
-                    prompt,
-                    tools=[{'google_search_retrieval': {}}]  # Enable web search grounding
-                )
+            # Retry logic with exponential backoff for API quota errors
+            max_retries = 3
+            retry_delays = [2, 4, 8]  # seconds
+            response = None
+            response_text = None
 
-                # Parse the LLM response
-                response_text = response.text.strip()
+            for attempt in range(max_retries + 1):
+                try:
+                    # Generate response with grounding (web search)
+                    response = model.generate_content(
+                        prompt,
+                        tools=[{'google_search_retrieval': {}}]  # Enable web search grounding
+                    )
 
-                # Extract JSON from response (handle markdown code blocks if present)
-                if '```json' in response_text:
-                    response_text = response_text.split('```json')[1].split('```')[0].strip()
-                elif '```' in response_text:
-                    response_text = response_text.split('```')[1].split('```')[0].strip()
+                    # Parse the LLM response
+                    response_text = response.text.strip()
 
-                analysis = json.loads(response_text)
+                    # Extract JSON from response (handle markdown code blocks if present)
+                    if '```json' in response_text:
+                        response_text = response_text.split('```json')[1].split('```')[0].strip()
+                    elif '```' in response_text:
+                        response_text = response_text.split('```')[1].split('```')[0].strip()
 
-                # Get adjacent cities from LLM response
-                adjacent_cities = analysis.get("adjacent_cities", [])
+                    analysis = json.loads(response_text)
 
-                # Log the LLM analysis for debugging
-                logger = logging.getLogger(__name__)
-                logger.info(f"LLM found adjacent cities for {city}: {adjacent_cities}")
-                logger.info(f"LLM reasoning: {analysis.get('reasoning', 'N/A')}")
+                    # Get adjacent cities from LLM response
+                    adjacent_cities = analysis.get("adjacent_cities", [])
 
-                # Always include the input city
-                city_names = [city.strip()]
-                city_names.extend([c.strip() for c in adjacent_cities if c.strip()])
+                    # Log the LLM analysis for debugging
+                    logger = logging.getLogger(__name__)
+                    logger.info(f"LLM found adjacent cities for {city}: {adjacent_cities}")
+                    logger.info(f"LLM reasoning: {analysis.get('reasoning', 'N/A')}")
 
-                # Remove duplicates while preserving order
-                city_names = list(dict.fromkeys(city_names))
+                    # Always include the input city
+                    city_names = [city.strip()]
+                    city_names.extend([c.strip() for c in adjacent_cities if c.strip()])
 
-                logger.info(f"Final city_names list: {city_names}")
+                    # Remove duplicates while preserving order
+                    city_names = list(dict.fromkeys(city_names))
 
-            except json.JSONDecodeError as je:
-                # If LLM fails, just use the input city
-                logger = logging.getLogger(__name__)
-                logger.error(f"Failed to parse LLM response for city {city}: {str(je)}")
-                logger.error(f"Raw response: {response_text if 'response_text' in locals() else 'N/A'}")
-                city_names = [city.strip()]
-                analysis = {
-                    "error": f"Failed to parse LLM response: {str(je)}",
-                    "fallback": "Using only input city"
-                }
-            except Exception as e:
-                # If LLM fails, just use the input city
-                logger = logging.getLogger(__name__)
-                logger.error(f"LLM analysis failed for city {city}: {str(e)}")
-                city_names = [city.strip()]
-                analysis = {
-                    "error": f"LLM analysis failed: {str(e)}",
-                    "fallback": "Using only input city"
-                }
+                    logger.info(f"Final city_names list: {city_names}")
+                    break  # Success! Exit retry loop
+
+                except json.JSONDecodeError as je:
+                    # If LLM fails to return valid JSON, just use the input city
+                    logger = logging.getLogger(__name__)
+                    logger.error(f"Failed to parse LLM response for city {city}: {str(je)}")
+                    logger.error(f"Raw response: {response_text if response_text else 'N/A'}")
+                    city_names = [city.strip()]
+                    analysis = {
+                        "error": f"Failed to parse LLM response: {str(je)}",
+                        "fallback": "Using only input city"
+                    }
+                    break  # Don't retry JSON errors
+
+                except Exception as e:
+                    error_str = str(e)
+                    logger = logging.getLogger(__name__)
+
+                    # Check if this is a quota error (429)
+                    is_quota_error = '429' in error_str or 'quota' in error_str.lower() or 'rate limit' in error_str.lower()
+
+                    if is_quota_error and attempt < max_retries:
+                        # Retry with exponential backoff
+                        delay = retry_delays[attempt]
+                        logger.warning(f"API quota error for city {city} (attempt {attempt + 1}/{max_retries + 1}): {error_str}")
+                        logger.info(f"Retrying in {delay} seconds...")
+                        time.sleep(delay)
+                        continue
+                    else:
+                        # Either not a quota error, or we've exhausted retries
+                        if is_quota_error:
+                            logger.error(f"API quota exceeded for city {city} after {max_retries + 1} attempts: {error_str}")
+                            logger.info(f"Falling back to using only input city: {city}")
+                        else:
+                            logger.error(f"LLM analysis failed for city {city}: {error_str}")
+
+                        city_names = [city.strip()]
+                        analysis = {
+                            "error": f"LLM analysis failed: {error_str}",
+                            "fallback": "Using only input city",
+                            "quota_exceeded": is_quota_error
+                        }
+                        break
 
             # Filter the provided destinations list by city names
             # Normalize city names for comparison
