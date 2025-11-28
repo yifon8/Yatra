@@ -127,7 +127,7 @@ class DestinationSuggester:
         return schema_dict
 
     def suggest_destinations(self,
-                           destination_type: Optional[str] = None,
+                           destination_type: str,
                            city: Optional[str] = None,
                            hours: Optional[float] = None,
                            budget: Optional[float] = None,
@@ -136,16 +136,29 @@ class DestinationSuggester:
         Suggest destinations based on user preferences using a deterministic filtering pipeline
 
         The filtering pipeline follows these steps:
-        1. Filter by rating (>= 4 stars)
-        2. Filter by visit duration (if provided)
+        1. Filter by destination type (REQUIRED user input)
+        2. Filter by rating (>= 4 stars, system required)
         3. Filter by budget (if provided)
-        4. Filter by destination type (if provided)
-        5. Filter for family-friendly destinations using LLM with web search
-        6. Filter by city and adjacent cities using LLM with web search (if city provided)
-        7. Ask LLM to generate recommendations from the filtered results
+        4. Filter by visit duration (if provided)
+        5. Store resulting destinations list
+
+        Then TWO BRANCHES:
+
+        Branch A (if city is provided):
+        6. Generate city_names list (input city + adjacent cities) via LLM web search
+        7. Filter destinations by city_names
+        8. Call family-friendly filter via LLM web search
+        9. Filter by family_friendly = true
+        10. Generate recommendations
+
+        Branch B (if city is NOT provided):
+        6. Cap to top 25 destinations sorted by rating
+        7. Call family-friendly filter via LLM web search
+        8. Filter by family_friendly = true
+        9. Generate recommendations
 
         Args:
-            destination_type: Type of destination (beach, mountain, heritage, wildlife)
+            destination_type: Type of destination (beach, mountain, heritage, wildlife) - REQUIRED
             city: City name to find destinations in or near (optional, max 30 chars)
             hours: Available time in hours (can be decimal, e.g., 0.5, 1.5, 8.25)
             budget: Budget in rupees
@@ -157,25 +170,21 @@ class DestinationSuggester:
         print(f"\n🔍 Starting deterministic filtering pipeline...\n")
 
         filtering_steps = []
-
-        # STEP 1: Filter by rating >= 4 stars
-        print("📊 Step 1: Filtering by rating (>= 4 stars)")
-        filtered_df = self.dataset._apply_rating_filter_on_df(self.dataset.df, min_rating=4.0)
         initial_count = len(self.dataset.df)
-        after_rating = len(filtered_df)
-        filtering_steps.append(f"Rating filter (>= 4.0): {initial_count} → {after_rating} destinations")
-        print(f"   ✓ Filtered from {initial_count} to {after_rating} destinations\n")
 
-        # STEP 2: Filter by visit duration (if provided)
-        if hours is not None:
-            print(f"⏱️  Step 2: Filtering by visit duration (<= {hours:g} hours)")
-            filtered_df = self.dataset._apply_duration_filter_on_df(filtered_df, hours)
-            after_duration = len(filtered_df)
-            filtering_steps.append(f"Duration filter (<= {hours:g} hrs): {after_rating} → {after_duration} destinations")
-            print(f"   ✓ Filtered to {after_duration} destinations\n")
-            after_rating = after_duration
-        else:
-            print("⏱️  Step 2: No duration filter specified (skipped)\n")
+        # STEP 1: Filter by destination type (REQUIRED)
+        print(f"🏖️  Step 1: Filtering by destination type ({destination_type})")
+        filtered_df = self.dataset._apply_type_filter_on_df(self.dataset.df, destination_type)
+        after_type = len(filtered_df)
+        filtering_steps.append(f"Type filter ({destination_type}): {initial_count} → {after_type} destinations")
+        print(f"   ✓ Filtered from {initial_count} to {after_type} destinations\n")
+
+        # STEP 2: Filter by rating >= 4 stars (SYSTEM REQUIRED)
+        print("📊 Step 2: Filtering by rating (>= 4 stars)")
+        filtered_df = self.dataset._apply_rating_filter_on_df(filtered_df, min_rating=4.0)
+        after_rating = len(filtered_df)
+        filtering_steps.append(f"Rating filter (>= 4.0): {after_type} → {after_rating} destinations")
+        print(f"   ✓ Filtered to {after_rating} destinations\n")
 
         # STEP 3: Filter by budget (if provided)
         if budget is not None:
@@ -188,18 +197,18 @@ class DestinationSuggester:
         else:
             print("💰 Step 3: No budget filter specified (skipped)\n")
 
-        # STEP 3.5: Filter by destination type (if provided) - insert before family filter
-        if destination_type:
-            print(f"🏖️  Step 3.5: Filtering by destination type ({destination_type})")
-            filtered_df = self.dataset._apply_type_filter_on_df(filtered_df, destination_type)
-            after_type = len(filtered_df)
-            filtering_steps.append(f"Type filter ({destination_type}): {after_rating} → {after_type} destinations")
-            print(f"   ✓ Filtered to {after_type} destinations\n")
-            after_rating = after_type
+        # STEP 4: Filter by visit duration (if provided)
+        if hours is not None:
+            print(f"⏱️  Step 4: Filtering by visit duration (<= {hours:g} hours)")
+            filtered_df = self.dataset._apply_duration_filter_on_df(filtered_df, hours)
+            after_duration = len(filtered_df)
+            filtering_steps.append(f"Duration filter (<= {hours:g} hrs): {after_rating} → {after_duration} destinations")
+            print(f"   ✓ Filtered to {after_duration} destinations\n")
+            after_rating = after_duration
         else:
-            print("🏖️  Step 3.5: No destination type specified (skipped)\n")
+            print("⏱️  Step 4: No duration filter specified (skipped)\n")
 
-        # Check if we have any destinations left
+        # STEP 5: Check if we have any destinations left
         if len(filtered_df) == 0:
             return {
                 'success': False,
@@ -210,65 +219,25 @@ class DestinationSuggester:
                 'filtering_steps': filtering_steps
             }
 
-        # Convert to list of dicts for tool processing
+        # STEP 5: Store resulting destinations list
         destinations_list = filtered_df.to_dict('records')
+        print(f"✅ Step 5: Stored {len(destinations_list)} destinations after initial filtering\n")
+        filtering_steps.append(f"Initial filtering complete: {len(destinations_list)} destinations ready for next stage")
 
-        # STEP 4: Filter for family-friendly destinations using LLM with web search
-        print(f"👨‍👩‍👧 Step 4: Filtering for family-friendly destinations using LLM with web search")
-        print(f"   Analyzing {len(destinations_list)} destinations...")
+        tools_used = []
 
-        try:
-            family_result = self.tools.filter_by_family_friendly(destinations_list)
-
-            if not family_result.get('success', False):
-                logger.error(f"Family filter failed: {family_result.get('error')}")
-                return {
-                    'success': False,
-                    'error': f"Family-friendly filter failed: {family_result.get('error', 'Unknown error')}",
-                    'query': f"destination_type={destination_type}, hours={hours}, budget={budget}, city={city}",
-                    'tools_used': [{'tool': 'filter_by_family_friendly', 'result': family_result}],
-                    'iterations': 1,
-                    'filtering_steps': filtering_steps
-                }
-
-            family_friendly_destinations = family_result.get('destinations', [])
-            after_family = len(family_friendly_destinations)
-            filtering_steps.append(f"Family-friendly filter (LLM): {after_rating} → {after_family} destinations")
-            print(f"   ✓ Filtered to {after_family} family-friendly destinations\n")
-
-        except Exception as e:
-            logger.error(f"Family filter error: {e}")
-            return {
-                'success': False,
-                'error': f"Error applying family-friendly filter: {str(e)}",
-                'query': f"destination_type={destination_type}, hours={hours}, budget={budget}, city={city}",
-                'tools_used': [],
-                'iterations': 0,
-                'filtering_steps': filtering_steps
-            }
-
-        # Check if we have any destinations left after family filter
-        if len(family_friendly_destinations) == 0:
-            return {
-                'success': False,
-                'error': 'No family-friendly destinations found matching your criteria. Try adjusting your filters.',
-                'query': f"destination_type={destination_type}, hours={hours}, budget={budget}, city={city}",
-                'tools_used': [{'tool': 'filter_by_family_friendly', 'result': family_result}],
-                'iterations': 1,
-                'filtering_steps': filtering_steps
-            }
-
-        # STEP 5: Store current list (this is our working set for city filtering if needed)
-        working_destinations = family_friendly_destinations
-        tools_used = [{'tool': 'filter_by_family_friendly', 'params': {'destination_count': len(destinations_list)}, 'result': family_result}]
-
-        # STEP 6: Filter by city if provided
+        # TWO-BRANCH LOGIC BASED ON CITY INPUT
         if city:
-            print(f"🏙️  Step 6: Filtering by city ({city}) and adjacent cities using LLM with web search")
-            print(f"   Analyzing {len(working_destinations)} destinations...")
+            # ========== BRANCH A: CITY PROVIDED ==========
+            print(f"🌆 BRANCH A: City-based filtering (city: {city})\n")
+
+            # STEP 6 (Branch A): Generate city_names list (input city + adjacent cities)
+            print(f"🏙️  Step 6: Generating city_names list using LLM web search")
+            print(f"   Finding cities adjacent to {city}...")
 
             try:
-                city_result = self.tools.filter_by_city(city, working_destinations)
+                # Use filter_by_city to get adjacent cities and filter destinations
+                city_result = self.tools.filter_by_city(city, destinations_list)
 
                 if not city_result.get('success', False):
                     logger.error(f"City filter failed: {city_result.get('error')}")
@@ -276,19 +245,33 @@ class DestinationSuggester:
                         'success': False,
                         'error': f"City filter failed: {city_result.get('error', 'Unknown error')}",
                         'query': f"destination_type={destination_type}, hours={hours}, budget={budget}, city={city}",
-                        'tools_used': tools_used + [{'tool': 'filter_by_city', 'result': city_result}],
-                        'iterations': 2,
+                        'tools_used': [{'tool': 'filter_by_city', 'result': city_result}],
+                        'iterations': 1,
                         'filtering_steps': filtering_steps
                     }
 
-                working_destinations = city_result.get('destinations', [])
-                city_names = city_result.get('cities_searched', [city])
-                after_city = len(working_destinations)
-                filtering_steps.append(f"City filter ({city} + adjacent): {after_family} → {after_city} destinations")
-                print(f"   ✓ Searched cities: {', '.join(city_names)}")
-                print(f"   ✓ Filtered to {after_city} destinations\n")
+                city_names = city_result.get('city_names', [city])
+                print(f"   ✓ Found city_names: {', '.join(city_names)}\n")
+
+                # STEP 7 (Branch A): Filter by city_names
+                print(f"📍 Step 7: Filtering destinations by city_names")
+                city_filtered_destinations = city_result.get('destinations', [])
+                after_city = len(city_filtered_destinations)
+                filtering_steps.append(f"City filter ({city} + adjacent): {len(destinations_list)} → {after_city} destinations")
+                print(f"   ✓ Filtered to {after_city} destinations in {', '.join(city_names)}\n")
 
                 tools_used.append({'tool': 'filter_by_city', 'params': {'city': city}, 'result': city_result})
+
+                # Check if we have any destinations left after city filter
+                if len(city_filtered_destinations) == 0:
+                    return {
+                        'success': False,
+                        'error': f'No destinations found in or near {city} matching your criteria. Try a different city or adjust your filters.',
+                        'query': f"destination_type={destination_type}, hours={hours}, budget={budget}, city={city}",
+                        'tools_used': tools_used,
+                        'iterations': len(tools_used),
+                        'filtering_steps': filtering_steps
+                    }
 
             except Exception as e:
                 logger.error(f"City filter error: {e}")
@@ -301,21 +284,142 @@ class DestinationSuggester:
                     'filtering_steps': filtering_steps
                 }
 
-            # Check if we have any destinations left after city filter
-            if len(working_destinations) == 0:
+            # STEP 8 (Branch A): Call family-friendly filter
+            print(f"👨‍👩‍👧 Step 8: Filtering for family-friendly destinations using LLM web search")
+            print(f"   Analyzing {len(city_filtered_destinations)} destinations...")
+
+            try:
+                family_result = self.tools.filter_by_family_friendly(city_filtered_destinations)
+
+                if not family_result.get('success', False):
+                    logger.error(f"Family filter failed: {family_result.get('error')}")
+                    return {
+                        'success': False,
+                        'error': f"Family-friendly filter failed: {family_result.get('error', 'Unknown error')}",
+                        'query': f"destination_type={destination_type}, hours={hours}, budget={budget}, city={city}",
+                        'tools_used': tools_used + [{'tool': 'filter_by_family_friendly', 'result': family_result}],
+                        'iterations': len(tools_used) + 1,
+                        'filtering_steps': filtering_steps
+                    }
+
+                family_friendly_destinations = family_result.get('destinations', [])
+                after_family = len(family_friendly_destinations)
+                filtering_steps.append(f"Family-friendly filter (LLM): {after_city} → {after_family} destinations")
+                print(f"   ✓ Filtered to {after_family} family-friendly destinations\n")
+
+                tools_used.append({'tool': 'filter_by_family_friendly', 'params': {'destination_count': len(city_filtered_destinations)}, 'result': family_result})
+
+            except Exception as e:
+                logger.error(f"Family filter error: {e}")
                 return {
                     'success': False,
-                    'error': f'No destinations found in or near {city} matching your criteria. Try a different city or adjust your filters.',
+                    'error': f"Error applying family-friendly filter: {str(e)}",
                     'query': f"destination_type={destination_type}, hours={hours}, budget={budget}, city={city}",
                     'tools_used': tools_used,
                     'iterations': len(tools_used),
                     'filtering_steps': filtering_steps
                 }
-        else:
-            print("🏙️  Step 6: No city filter specified (skipped)\n")
 
-        # STEP 7: Ask LLM to generate recommendations from filtered results
-        print(f"✨ Step 7: Generating recommendations from {len(working_destinations)} filtered destinations\n")
+            # STEP 9 (Branch A): Filter by family_friendly = true (already done by the tool)
+            # Check if we have any destinations left
+            if len(family_friendly_destinations) == 0:
+                return {
+                    'success': False,
+                    'error': 'No family-friendly destinations found matching your criteria. Try adjusting your filters.',
+                    'query': f"destination_type={destination_type}, hours={hours}, budget={budget}, city={city}",
+                    'tools_used': tools_used,
+                    'iterations': len(tools_used),
+                    'filtering_steps': filtering_steps
+                }
+
+            # Store final working set for recommendations
+            working_destinations = family_friendly_destinations
+
+        else:
+            # ========== BRANCH B: NO CITY PROVIDED ==========
+            print(f"🌍 BRANCH B: No city filter (analyzing top destinations by rating)\n")
+
+            # STEP 6 (Branch B): Cap to top 25 destinations sorted by rating
+            print(f"📊 Step 6: Capping to top 25 destinations sorted by rating")
+
+            # Sort by rating descending
+            rating_column = None
+            possible_columns = ['rating', 'google_review_rating', 'review_rating', 'user_rating', 'average_rating']
+            for col in possible_columns:
+                if col in filtered_df.columns:
+                    rating_column = col
+                    break
+
+            if rating_column:
+                # Convert to numeric and sort
+                filtered_df[f'{rating_column}_numeric'] = pd.to_numeric(filtered_df[rating_column], errors='coerce')
+                sorted_df = filtered_df.sort_values(by=f'{rating_column}_numeric', ascending=False, na_position='last')
+                sorted_df = sorted_df.drop(columns=[f'{rating_column}_numeric'])
+            else:
+                sorted_df = filtered_df
+
+            # Cap to top 25
+            top_destinations = sorted_df.head(25).to_dict('records')
+            after_cap = len(top_destinations)
+            filtering_steps.append(f"Cap to top 25 by rating: {len(destinations_list)} → {after_cap} destinations")
+            print(f"   ✓ Capped to {after_cap} destinations\n")
+
+            # STEP 7 (Branch B): Call family-friendly filter
+            print(f"👨‍👩‍👧 Step 7: Filtering for family-friendly destinations using LLM web search")
+            print(f"   Analyzing {len(top_destinations)} destinations...")
+
+            try:
+                family_result = self.tools.filter_by_family_friendly(top_destinations)
+
+                if not family_result.get('success', False):
+                    logger.error(f"Family filter failed: {family_result.get('error')}")
+                    return {
+                        'success': False,
+                        'error': f"Family-friendly filter failed: {family_result.get('error', 'Unknown error')}",
+                        'query': f"destination_type={destination_type}, hours={hours}, budget={budget}, city={city}",
+                        'tools_used': [{'tool': 'filter_by_family_friendly', 'result': family_result}],
+                        'iterations': 1,
+                        'filtering_steps': filtering_steps
+                    }
+
+                family_friendly_destinations = family_result.get('destinations', [])
+                after_family = len(family_friendly_destinations)
+                filtering_steps.append(f"Family-friendly filter (LLM): {after_cap} → {after_family} destinations")
+                print(f"   ✓ Filtered to {after_family} family-friendly destinations\n")
+
+                tools_used.append({'tool': 'filter_by_family_friendly', 'params': {'destination_count': len(top_destinations)}, 'result': family_result})
+
+            except Exception as e:
+                logger.error(f"Family filter error: {e}")
+                return {
+                    'success': False,
+                    'error': f"Error applying family-friendly filter: {str(e)}",
+                    'query': f"destination_type={destination_type}, hours={hours}, budget={budget}, city={city}",
+                    'tools_used': [],
+                    'iterations': 0,
+                    'filtering_steps': filtering_steps
+                }
+
+            # STEP 8 (Branch B): Filter by family_friendly = true (already done by the tool)
+            # Check if we have any destinations left
+            if len(family_friendly_destinations) == 0:
+                return {
+                    'success': False,
+                    'error': 'No family-friendly destinations found matching your criteria. Try adjusting your filters.',
+                    'query': f"destination_type={destination_type}, hours={hours}, budget={budget}, city={city}",
+                    'tools_used': tools_used,
+                    'iterations': len(tools_used),
+                    'filtering_steps': filtering_steps
+                }
+
+            # Store final working set for recommendations
+            working_destinations = family_friendly_destinations
+
+        # FINAL STEP: Generate recommendations from filtered results
+        if city:
+            print(f"✨ Step 10: Generating recommendations from {len(working_destinations)} filtered destinations\n")
+        else:
+            print(f"✨ Step 9: Generating recommendations from {len(working_destinations)} filtered destinations\n")
 
         # Limit to max 50 destinations to prevent payload issues
         max_results = 50
@@ -949,16 +1053,16 @@ Please write in a friendly, helpful tone as a travel advisor."""
         }
 
     def _create_query(self,
-                     destination_type: Optional[str],
+                     destination_type: str,
                      city: Optional[str],
                      hours: Optional[float],
                      budget: Optional[float]) -> str:
-        """Create a natural language query from user parameters"""
+        """Create a natural language query from user parameters (DEPRECATED - used by legacy methods only)"""
 
         # Create query based on whether city is specified
         if city is not None:
             # For city-based searches, guide the agent through the correct tool sequence
-            query = f"I need help finding {destination_type or 'travel'} destinations in or near {city}, India.\n"
+            query = f"I need help finding {destination_type} destinations in or near {city}, India.\n"
 
             # Add filter details
             if hours is not None:
@@ -972,9 +1076,7 @@ Please write in a friendly, helpful tone as a travel advisor."""
                     query += f"\nBudget: around ₹{budget:,.0f}."
 
             # Add tool instruction with proper sequence
-            query += f'\n\nPlease search for destinations first using search_destinations_quantitative'
-            if destination_type:
-                query += f' with destination_type="{destination_type}"'
+            query += f'\n\nPlease search for destinations first using search_destinations_quantitative with destination_type="{destination_type}"'
             if hours is not None:
                 query += f', max_hours={hours:g}'
             if budget is not None:
@@ -982,11 +1084,7 @@ Please write in a friendly, helpful tone as a travel advisor."""
             query += f'. Then use filter_by_city with city="{city}" to filter the results to destinations in or near {city}.'
         else:
             # Build filter description for non-city queries
-            filter_parts = []
-            if destination_type:
-                filter_parts.append(f"{destination_type} destinations")
-            else:
-                filter_parts.append("destinations")
+            filter_parts = [f"{destination_type} destinations"]
 
             if hours is not None:
                 hours_str = f"{hours:g}"

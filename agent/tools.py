@@ -33,13 +33,13 @@ class TravelTools:
         return [
             {
                 "name": "search_destinations_quantitative",
-                "description": "Search for destinations using quantitative filters like budget, duration, and type. SYSTEM FILTERS: Automatically filters for family-friendly destinations with rating null or >4.0. Returns a list of matching destinations.",
+                "description": "Search for destinations using quantitative filters. REQUIRED: destination_type must be specified. SYSTEM FILTERS: Automatically filters by rating >=4.0. Returns a list of matching destinations.",
                 "parameters": {
                     "type": "object",
                     "properties": {
                         "destination_type": {
                             "type": "string",
-                            "description": "Type of destination: 'beach', 'mountain', 'heritage', 'wildlife'.",
+                            "description": "Type of destination: 'beach', 'mountain', 'heritage', 'wildlife'. REQUIRED parameter.",
                             "enum": ["beach", "mountain", "heritage", "wildlife"]
                         },
                         "max_budget": {
@@ -51,7 +51,7 @@ class TravelTools:
                             "description": "Maximum visit duration in hours (can be decimal, e.g., 0.5, 1.5, 8.25)"
                         }
                     },
-                    "required": []
+                    "required": ["destination_type"]
                 }
             },
             {
@@ -138,18 +138,18 @@ class TravelTools:
             return {"error": f"Unknown tool: {tool_name}"}
 
     def search_destinations_quantitative(self,
-                                        destination_type: Optional[str] = None,
+                                        destination_type: str,
                                         max_budget: Optional[float] = None,
                                         max_hours: Optional[float] = None) -> Dict[str, Any]:
         """
         Search destinations using quantitative filters with system-level filtering
 
         SYSTEM FILTERS (always applied):
-        - Rating must be null or > 4.0
-        - Destinations must be family-friendly
+        - Rating must be >= 4.0
+        - Destination type filtering (REQUIRED parameter)
 
         Args:
-            destination_type: Type of destination to filter by
+            destination_type: Type of destination to filter by (REQUIRED: beach, mountain, heritage, wildlife)
             max_budget: Maximum budget in rupees
             max_hours: Maximum duration in hours (can be decimal, e.g., 0.5, 1.5, 8.25)
 
@@ -159,7 +159,7 @@ class TravelTools:
         try:
             # Perform quantitative search with system-level filters
             results_df = self.dataset.search_quantitative(
-                destination_type=destination_type if destination_type else None,
+                destination_type=destination_type,
                 max_budget=max_budget,
                 max_hours=max_hours
             )
@@ -226,12 +226,12 @@ class TravelTools:
                 "total_matching": total_matching,
                 "destinations": compact_destinations,
                 "filters_applied": {
-                    "system_filters": "Rating >4.0 or null, Family-friendly",
-                    "type": destination_type or "all",
+                    "system_filters": "Rating >= 4.0",
+                    "type": destination_type,
                     "max_budget": max_budget or "unlimited",
                     "max_hours": max_hours or "unlimited"
                 },
-                "note": f"Returning {len(compact_destinations)} matching destinations with system filters applied (family-friendly, rating >= 4.0). If user specified a city, call filter_by_city with these results.{note_suffix}"
+                "note": f"Returning {len(compact_destinations)} matching destinations with filters applied (type: {destination_type}, rating >= 4.0).{note_suffix}"
             }
         except Exception as e:
             return {
