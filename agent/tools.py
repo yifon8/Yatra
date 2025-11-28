@@ -299,11 +299,21 @@ class TravelTools:
         This implementation uses an LLM to search the web for information about
         each destination and determine if it's suitable for families with small children.
         The LLM examines the top 2 web results for specific family-friendly terms:
-        - "family-friendly" or "family friendly"
-        - "suitable for children"
-        - "playground"
-        - "bring your whole family"
-        - "strollers allowed"
+        1. "family-friendly" or "family friendly"
+        2. "suitable for children"
+        3. "playground"
+        4. "bring your whole family"
+        5. "strollers allowed"
+        6. "kid-friendly"
+        7. "kids welcome"
+        8. "safe for kids"
+        9. "perfect for families"
+        10. "children's activities"
+        11. "family activities"
+        12. "all ages welcome"
+        13. "toddler-friendly"
+        14. "baby-friendly"
+        15. "suitable for all ages"
 
         If ANY of these terms are found in the top 2 web results, the destination
         is marked as family-friendly. The LLM also evaluates general factors like
@@ -394,6 +404,16 @@ SPECIFIC SEARCH CRITERIA - Look for these exact terms and phrases in the web res
 3. "playground"
 4. "bring your whole family"
 5. "strollers allowed"
+6. "kid-friendly"
+7. "kids welcome"
+8. "safe for kids"
+9. "perfect for families"
+10. "children's activities"
+11. "family activities"
+12. "all ages welcome"
+13. "toddler-friendly"
+14. "baby-friendly"
+15. "suitable for all ages"
 
 ALSO consider these factors:
 - Activities available at this destination
