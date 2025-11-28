@@ -366,7 +366,7 @@ class TravelTools:
 
             # Configure Gemini with grounding for web search
             model = genai.GenerativeModel(
-                model_name='gemini-2.5-flash-lite',
+                model_name='gemini-2.0-flash-exp',
                 generation_config=genai.GenerationConfig(
                     temperature=0.0  # Deterministic responses
                 )
@@ -537,7 +537,7 @@ Do not include any text before or after the JSON object."""
         try:
             # Configure Gemini with grounding for web search
             model = genai.GenerativeModel(
-                model_name='gemini-2.5-flash-lite',
+                model_name='gemini-2.0-flash-exp',
                 generation_config=genai.GenerationConfig(
                     temperature=0.0  # Deterministic responses
                 )
