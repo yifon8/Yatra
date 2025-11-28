@@ -48,33 +48,41 @@ def interactive_mode(agent: DestinationSuggester):
     # Collect user preferences
     print("Please answer a few questions:\n")
 
-    # Destination type
-    print("1. What type of destination are you interested in?")
+    # Destination type (REQUIRED)
+    print("1. What type of destination are you interested in? (REQUIRED)")
     print("   a) Beach & Coastal")
     print("   b) Mountain & Hill Stations")
     print("   c) Heritage & Cultural")
     print("   d) Wildlife & Nature")
-    print("   e) Any type")
 
     type_map = {
         'a': 'beach',
         'b': 'mountain',
         'c': 'heritage',
-        'd': 'wildlife',
-        'e': None
+        'd': 'wildlife'
     }
 
-    type_choice = input("\nYour choice (a/b/c/d/e): ").lower().strip()
+    type_choice = input("\nYour choice (a/b/c/d): ").lower().strip()
     destination_type = type_map.get(type_choice)
 
+    while not destination_type:
+        print("❌ Destination type is required! Please choose a, b, c, or d.")
+        type_choice = input("Your choice (a/b/c/d): ").lower().strip()
+        destination_type = type_map.get(type_choice)
+
+    # City (optional)
+    print("\n2. Which city would you like to explore (or nearby)?")
+    city_input = input("   City name (or press Enter to skip): ").strip()
+    city = city_input if city_input else None
+
     # Duration
-    print("\n2. How many hours do you have for the visit?")
+    print("\n3. How many hours do you have for the visit?")
     print("   (You can enter decimal values like 0.5, 1.5, 8.25)")
     hours_input = input("   Hours (or press Enter to skip): ").strip()
     hours = float(hours_input) if hours_input else None
 
     # Budget
-    print("\n3. What is your budget in Indian Rupees?")
+    print("\n4. What is your budget in Indian Rupees?")
     budget_input = input("   Budget ₹ (or press Enter to skip): ").strip()
     budget = float(budget_input) if budget_input else None
 
@@ -84,6 +92,7 @@ def interactive_mode(agent: DestinationSuggester):
     try:
         result = agent.suggest_destinations(
             destination_type=destination_type,
+            city=city,
             hours=hours,
             budget=budget
         )
@@ -99,9 +108,17 @@ def command_line_mode(agent: DestinationSuggester, args):
     """Run agent with command line arguments"""
     print_banner()
 
+    # Check that destination_type is provided (REQUIRED)
+    if not args.type:
+        print("❌ Error: --type is required!")
+        print("   Please specify one of: beach, mountain, heritage, wildlife")
+        print("\n   Example: python run_agent.py --type beach --hours 4 --budget 5000\n")
+        sys.exit(1)
+
     try:
         result = agent.suggest_destinations(
             destination_type=args.type,
+            city=args.city,
             hours=args.hours,
             budget=args.budget
         )
@@ -171,7 +188,13 @@ Examples:
     parser.add_argument(
         '--type',
         choices=['beach', 'mountain', 'heritage', 'wildlife'],
-        help='Type of destination'
+        help='Type of destination (REQUIRED for non-interactive mode)'
+    )
+
+    parser.add_argument(
+        '--city',
+        type=str,
+        help='City name to find destinations in or near (optional)'
     )
 
     parser.add_argument(
