@@ -759,37 +759,35 @@
             }
         }
 
-        // Helper function to load image from URL and convert to base64
-        async function loadImageAsBase64(imageUrl) {
-            return new Promise((resolve, reject) => {
-                const img = new Image();
-                img.crossOrigin = 'Anonymous';
-                img.onload = function() {
-                    const canvas = document.createElement('canvas');
-                    canvas.width = img.width;
-                    canvas.height = img.height;
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(img, 0, 0);
-                    try {
-                        const dataURL = canvas.toDataURL('image/jpeg', 0.7);
-                        resolve(dataURL);
-                    } catch (e) {
-                        reject(e);
-                    }
-                };
-                img.onerror = () => reject(new Error('Failed to load image'));
-                img.src = imageUrl;
-            });
+        // Helper function to load image from backend API
+        async function loadImageAsBase64(query) {
+            try {
+                // Fetch image from backend proxy endpoint
+                const response = await fetch(`/api/image?query=${encodeURIComponent(query)}`, {
+                    credentials: 'include'
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to fetch image from backend');
+                }
+
+                const data = await response.json();
+
+                if (data.success && data.image) {
+                    return data.image; // Already base64 encoded
+                } else {
+                    throw new Error(data.error || 'No image returned');
+                }
+            } catch (error) {
+                console.error('Error loading image:', error);
+                throw error;
+            }
         }
 
-        // Function to get image URL for a destination using Unsplash
-        function getDestinationImageUrl(dest) {
+        // Function to create image query for a destination
+        function getDestinationImageQuery(dest) {
             // Create search query: destination name + location
-            const query = encodeURIComponent(`${dest.name} ${dest.city || ''} India tourist landmark`.trim());
-
-            // Unsplash Source API - provides random images matching query
-            // Size: 800x600 (medium quality for PDF)
-            return `https://source.unsplash.com/800x600/?${query}`;
+            return `${dest.name} ${dest.city || ''} India tourist landmark`.trim();
         }
 
         // Function to download PDF with all destinations
@@ -826,8 +824,8 @@
                 downloadBtn.innerHTML = '<img src="Yatra_download.svg" alt="Download"> Loading images...';
                 const imagePromises = destinationsToExport.map(async (dest, index) => {
                     try {
-                        const imageUrl = getDestinationImageUrl(dest);
-                        const base64Image = await loadImageAsBase64(imageUrl);
+                        const imageQuery = getDestinationImageQuery(dest);
+                        const base64Image = await loadImageAsBase64(imageQuery);
                         return { index, base64Image, success: true };
                     } catch (error) {
                         console.error(`Failed to load image for ${dest.name}:`, error);

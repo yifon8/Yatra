@@ -12,6 +12,8 @@ from typing import Dict, Any, List
 import pandas as pd
 import uuid
 from datetime import datetime, timedelta
+import requests
+from urllib.parse import quote
 
 from agent import DestinationSuggester
 
@@ -459,6 +461,108 @@ def restart_search():
 
     except Exception as e:
         print(f"❌ Error restarting search: {str(e)}")
+        import traceback
+        traceback.print_exc()
+
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/api/image', methods=['GET'])
+def get_destination_image():
+    """
+    Proxy endpoint to fetch destination images without CORS issues
+
+    Query parameters:
+    - query: Search query for the image (e.g., "Taj Mahal India")
+
+    Returns:
+        Image data with proper CORS headers or base64 encoded image
+    """
+    try:
+        query = request.args.get('query', '')
+
+        if not query:
+            return jsonify({
+                'success': False,
+                'error': 'Query parameter is required'
+            }), 400
+
+        # Check for Unsplash API key
+        unsplash_access_key = os.getenv('UNSPLASH_ACCESS_KEY')
+
+        if unsplash_access_key:
+            # Use Unsplash API for destination-specific images
+            try:
+                search_url = f"https://api.unsplash.com/search/photos"
+                params = {
+                    'query': query,
+                    'per_page': 1,
+                    'orientation': 'landscape',
+                    'content_filter': 'high'
+                }
+                headers = {
+                    'Authorization': f'Client-ID {unsplash_access_key}'
+                }
+
+                response = requests.get(search_url, params=params, headers=headers, timeout=10)
+                response.raise_for_status()
+
+                data = response.json()
+
+                if data.get('results') and len(data['results']) > 0:
+                    # Get the regular size image URL
+                    image_url = data['results'][0]['urls']['regular']
+
+                    # Fetch the actual image
+                    img_response = requests.get(image_url, timeout=10)
+                    img_response.raise_for_status()
+
+                    # Return image as base64
+                    import base64
+                    img_base64 = base64.b64encode(img_response.content).decode('utf-8')
+
+                    return jsonify({
+                        'success': True,
+                        'image': f"data:image/jpeg;base64,{img_base64}",
+                        'source': 'unsplash'
+                    })
+                else:
+                    # No results from Unsplash, fall through to backup
+                    print(f"⚠️ No Unsplash results for query: {query}")
+            except Exception as e:
+                print(f"⚠️ Unsplash API error: {str(e)}")
+                # Fall through to backup service
+
+        # Fallback to Picsum (random but reliable images)
+        # Use a deterministic seed based on query for consistent images
+        seed = abs(hash(query)) % 1000
+        picsum_url = f"https://picsum.photos/seed/{seed}/800/600"
+
+        try:
+            img_response = requests.get(picsum_url, timeout=10)
+            img_response.raise_for_status()
+
+            # Return image as base64
+            import base64
+            img_base64 = base64.b64encode(img_response.content).decode('utf-8')
+
+            return jsonify({
+                'success': True,
+                'image': f"data:image/jpeg;base64,{img_base64}",
+                'source': 'picsum'
+            })
+        except Exception as e:
+            print(f"❌ Error fetching from Picsum: {str(e)}")
+            return jsonify({
+                'success': False,
+                'error': 'Failed to fetch image'
+            }), 500
+
+    except Exception as e:
+        print(f"❌ Error in image proxy: {str(e)}")
         import traceback
         traceback.print_exc()
 
