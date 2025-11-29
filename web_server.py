@@ -4,7 +4,7 @@ Yatra Web Server - Flask API for the web interface
 Handles form submissions and connects to the DestinationSuggester agent
 """
 
-from flask import Flask, request, jsonify, send_from_directory, session
+from flask import Flask, request, jsonify, send_from_directory, session, send_file
 from flask_cors import CORS
 import os
 import sys
@@ -12,6 +12,13 @@ from typing import Dict, Any, List
 import pandas as pd
 import uuid
 from datetime import datetime, timedelta
+from io import BytesIO
+
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak
+from reportlab.lib.enums import TA_CENTER, TA_LEFT
 
 from agent import DestinationSuggester
 
@@ -200,6 +207,148 @@ def sort_destinations_by_rating(destinations: List[Dict]) -> List[Dict]:
     sorted_destinations = sorted(destinations, key=get_rating, reverse=True)
 
     return sorted_destinations
+
+
+def generate_pdf_with_destinations(destinations: List[Dict], query_info: str = "") -> BytesIO:
+    """
+    Generate a PDF document with destination information
+
+    Args:
+        destinations: List of destination dictionaries (up to 25)
+        query_info: Optional string describing the search query
+
+    Returns:
+        BytesIO object containing the PDF
+    """
+    buffer = BytesIO()
+
+    # Create PDF document
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=letter,
+        rightMargin=0.75*inch,
+        leftMargin=0.75*inch,
+        topMargin=0.75*inch,
+        bottomMargin=0.75*inch
+    )
+
+    # Container for PDF elements
+    story = []
+
+    # Get styles
+    styles = getSampleStyleSheet()
+
+    # Custom styles
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontSize=24,
+        textColor='#d97531',
+        spaceAfter=12,
+        alignment=TA_CENTER
+    )
+
+    subtitle_style = ParagraphStyle(
+        'CustomSubtitle',
+        parent=styles['Normal'],
+        fontSize=12,
+        textColor='#666666',
+        spaceAfter=20,
+        alignment=TA_CENTER
+    )
+
+    dest_title_style = ParagraphStyle(
+        'DestTitle',
+        parent=styles['Heading2'],
+        fontSize=16,
+        textColor='#d97531',
+        spaceAfter=8,
+        spaceBefore=12
+    )
+
+    dest_content_style = ParagraphStyle(
+        'DestContent',
+        parent=styles['Normal'],
+        fontSize=11,
+        textColor='#333333',
+        spaceAfter=6,
+        alignment=TA_LEFT
+    )
+
+    # Add title
+    story.append(Paragraph("Yatra Travel Destinations", title_style))
+    story.append(Paragraph(f"Generated on {datetime.now().strftime('%B %d, %Y')}", subtitle_style))
+
+    if query_info:
+        story.append(Paragraph(query_info, subtitle_style))
+
+    story.append(Spacer(1, 0.3*inch))
+
+    # Limit to 25 destinations
+    destinations_to_show = destinations[:25]
+
+    # Add each destination
+    for idx, dest in enumerate(destinations_to_show, 1):
+        # Start new page for each destination (one slide per destination)
+        if idx > 1:
+            story.append(PageBreak())
+
+        # Destination name
+        name = dest.get('name') or dest.get('place', 'Unknown Destination')
+        story.append(Paragraph(f"{idx}. {name}", dest_title_style))
+
+        # Rating
+        rating = dest.get('google_review_rating') or dest.get('rating', '')
+        if rating and rating != '':
+            try:
+                rating_val = float(rating)
+                story.append(Paragraph(f"<b>Rating:</b> ★ {rating_val}/5", dest_content_style))
+            except (ValueError, TypeError):
+                pass
+
+        # Type
+        dest_type = dest.get('type', '')
+        if dest_type:
+            story.append(Paragraph(f"<b>Type:</b> {dest_type}", dest_content_style))
+
+        # Location
+        city = dest.get('city', '')
+        state = dest.get('state', '')
+        if city or state:
+            location = f"{city}{', ' if city and state else ''}{state}"
+            story.append(Paragraph(f"<b>Location:</b> {location}", dest_content_style))
+
+        # Time needed
+        time_needed = dest.get('time_needed_to_visit_in_hrs', '')
+        if time_needed and time_needed != '':
+            story.append(Paragraph(f"<b>Time needed:</b> {time_needed} hours", dest_content_style))
+
+        # Entry fee
+        fee = dest.get('entrance_fee_in_inr', '')
+        fee_text = "Information not available"
+        if fee == 0 or fee == '0':
+            fee_text = "Free"
+        elif fee and fee != '':
+            try:
+                fee_val = float(fee)
+                fee_text = f"₹{fee_val:,.0f}"
+            except (ValueError, TypeError):
+                pass
+        story.append(Paragraph(f"<b>Entry Fee:</b> {fee_text}", dest_content_style))
+
+        # Description
+        description = dest.get('description', '')
+        if description:
+            story.append(Spacer(1, 0.15*inch))
+            story.append(Paragraph(f"<b>Description:</b>", dest_content_style))
+            story.append(Paragraph(description, dest_content_style))
+
+    # Build PDF
+    doc.build(story)
+
+    # Reset buffer position
+    buffer.seek(0)
+    return buffer
 
 
 @app.route('/api/suggest', methods=['POST'])
@@ -475,6 +624,59 @@ def health_check():
         'status': 'healthy',
         'agent_initialized': agent is not None
     })
+
+
+@app.route('/api/download-pdf', methods=['POST'])
+def download_pdf():
+    """
+    Generate and download PDF of destination results
+
+    Returns:
+        PDF file with up to 25 destinations
+    """
+    try:
+        # Get session ID
+        session_id = session.get('search_session_id')
+
+        if not session_id or session_id not in destinations_cache:
+            return jsonify({
+                'success': False,
+                'error': 'No active search results. Please submit a search first.'
+            }), 400
+
+        # Get cached destinations
+        cache_entry = destinations_cache[session_id]
+        all_destinations = cache_entry['destinations']
+
+        if not all_destinations or len(all_destinations) == 0:
+            return jsonify({
+                'success': False,
+                'error': 'No destinations available to download.'
+            }), 400
+
+        # Generate PDF (limited to 25 destinations)
+        destinations_count = min(len(all_destinations), 25)
+        query_info = f"Your top {destinations_count} travel destination recommendations"
+
+        pdf_buffer = generate_pdf_with_destinations(all_destinations, query_info)
+
+        # Send the PDF file
+        return send_file(
+            pdf_buffer,
+            mimetype='application/pdf',
+            as_attachment=True,
+            download_name=f'yatra-destinations-{datetime.now().strftime("%Y-%m-%d")}.pdf'
+        )
+
+    except Exception as e:
+        print(f"❌ Error generating PDF: {str(e)}")
+        import traceback
+        traceback.print_exc()
+
+        return jsonify({
+            'success': False,
+            'error': f'Failed to generate PDF: {str(e)}'
+        }), 500
 
 
 if __name__ == '__main__':

@@ -172,8 +172,46 @@
             font-weight: bold;
             color: #d97531;
             margin-bottom: 19px;
-            text-align: center;
             text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .download-button {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.2s, opacity 0.2s;
+            opacity: 0.8;
+        }
+
+        .download-button:hover {
+            transform: scale(1.1);
+            opacity: 1;
+        }
+
+        .download-button:active {
+            transform: scale(0.95);
+        }
+
+        .download-button img {
+            width: 32px;
+            height: 32px;
+            display: block;
+        }
+
+        .download-button:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .download-button:disabled:hover {
+            transform: none;
         }
 
         .results-content {
@@ -308,7 +346,12 @@
 
         <!-- Results Container -->
         <div class="results-container" id="resultsContainer">
-            <div class="results-title">Yatra says:</div>
+            <div class="results-title">
+                <span>Yatra says:</span>
+                <button type="button" class="download-button" id="downloadBtn" title="Download results as PDF">
+                    <img src="assets/Yatra_download.svg" alt="Download">
+                </button>
+            </div>
             <div class="results-divider"></div>
             <div class="results-content" id="resultsContent">
                 <p>Your travel recommendations will appear here...</p>
@@ -330,6 +373,7 @@
         const submitBtn = document.getElementById('submitBtn');
         const restartBtn = document.getElementById('restartBtn');
         const moreBtn = document.getElementById('moreBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
         const resultsContent = document.getElementById('resultsContent');
 
         // Track current state
@@ -675,10 +719,54 @@
             moreBtn.style.display = 'none';
         }
 
+        // Function to download results as PDF
+        async function downloadPDF() {
+            downloadBtn.disabled = true;
+
+            try {
+                // Call backend to generate PDF
+                const response = await fetch('/api/download-pdf', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include'
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    alert(error.error || 'Failed to generate PDF. Please try again.');
+                    return;
+                }
+
+                // Get the PDF blob
+                const blob = await response.blob();
+
+                // Create a download link and trigger it
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `yatra-destinations-${new Date().toISOString().split('T')[0]}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+
+                // Cleanup
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+
+            } catch (error) {
+                console.error('Error downloading PDF:', error);
+                alert('Failed to download PDF. Please try again.');
+            } finally {
+                downloadBtn.disabled = false;
+            }
+        }
+
         // Event listeners
         submitBtn.addEventListener('click', submitForm);
         restartBtn.addEventListener('click', restartSearch);
         moreBtn.addEventListener('click', getMoreDestinations);
+        downloadBtn.addEventListener('click', downloadPDF);
 
         // Allow Enter key to submit form
         document.addEventListener('keypress', (e) => {
