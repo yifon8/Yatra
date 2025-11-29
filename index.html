@@ -871,7 +871,7 @@
                     }
 
                     const nameLines = doc.splitTextToSize(nameText, contentWidth);
-                    doc.text(nameLines, margin, yPosition);
+                    doc.text(nameLines, margin, yPosition, { maxWidth: contentWidth });
                     yPosition += 7;
 
                     // Details
@@ -887,13 +887,13 @@
 
                     if (type) {
                         const typeLines = doc.splitTextToSize(`Type: ${type}`, contentWidth);
-                        doc.text(typeLines, margin, yPosition);
+                        doc.text(typeLines, margin, yPosition, { maxWidth: contentWidth });
                         yPosition += typeLines.length * 5;
                     }
 
                     if (city || state) {
                         const locationLines = doc.splitTextToSize(`Location: ${city}${city && state ? ', ' : ''}${state}`, contentWidth);
-                        doc.text(locationLines, margin, yPosition);
+                        doc.text(locationLines, margin, yPosition, { maxWidth: contentWidth });
                         yPosition += locationLines.length * 5;
                     }
 
@@ -919,7 +919,7 @@
                         yPosition += 2;
                         doc.setFontSize(9);
                         const descLines = doc.splitTextToSize(description, contentWidth);
-                        doc.text(descLines, margin, yPosition);
+                        doc.text(descLines, margin, yPosition, { maxWidth: contentWidth });
                         yPosition += descLines.length * 4;
                     }
 
@@ -929,7 +929,7 @@
                     doc.setTextColor(0, 100, 0); // Green color for family-friendly
                     const familyReason = getFamilyFriendlyReason(dest);
                     const reasonLines = doc.splitTextToSize(`✓ Family-Friendly: ${familyReason}`, contentWidth);
-                    doc.text(reasonLines, margin, yPosition);
+                    doc.text(reasonLines, margin, yPosition, { maxWidth: contentWidth });
                     yPosition += reasonLines.length * 4 + 8;
 
                     // Add a separator line
