@@ -350,6 +350,43 @@ def get_more_destinations():
         }), 500
 
 
+@app.route('/api/restart', methods=['POST'])
+def restart_search():
+    """
+    Restart search - clears backend cache and generates new session ID
+
+    This ensures the backend is ready for a fresh form submission.
+    """
+    try:
+        # Get current session ID
+        old_session_id = session.get('search_session_id')
+
+        # Clear the cache for the current session if it exists
+        if old_session_id and old_session_id in destinations_cache:
+            del destinations_cache[old_session_id]
+            print(f"🔄 Cleared cache for session: {old_session_id[:8]}...")
+
+        # Generate a new session ID to ensure a clean slate
+        session['search_session_id'] = str(uuid.uuid4())
+        new_session_id = session['search_session_id']
+        print(f"✨ Created new session: {new_session_id[:8]}...")
+
+        return jsonify({
+            'success': True,
+            'message': 'Backend reset successfully. Ready for new search.'
+        })
+
+    except Exception as e:
+        print(f"❌ Error restarting search: {str(e)}")
+        import traceback
+        traceback.print_exc()
+
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
 @app.route('/api/health', methods=['GET'])
 def health_check():
     """Health check endpoint"""

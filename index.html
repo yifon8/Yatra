@@ -617,8 +617,31 @@
             }
         }
 
-        // Function to restart search - clear form and results
-        function restartSearch() {
+        // Function to restart search - clear form, results, and backend cache
+        async function restartSearch() {
+            try {
+                // Call backend to clear cache and reset session
+                const response = await fetch('/api/restart', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include'  // Include session cookie
+                });
+
+                const data = await response.json();
+
+                if (!data.success) {
+                    console.error('Backend restart failed:', data.error);
+                    // Continue with frontend cleanup even if backend fails
+                }
+
+                console.log('Backend reset:', data.message || 'Success');
+            } catch (error) {
+                console.error('Error calling restart endpoint:', error);
+                // Continue with frontend cleanup even if backend fails
+            }
+
             // Reset form fields
             destinationSelect.value = '';
             cityInput.value = '';
