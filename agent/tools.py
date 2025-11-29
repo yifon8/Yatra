@@ -317,7 +317,7 @@ class TravelTools:
                 "summary": {}
             }
 
-    def filter_by_family_friendly(self, destination_names: List[str]) -> Dict[str, Any]:
+    def filter_by_family_friendly(self, destination_names: List[str], cancellation_checker: Optional[callable] = None) -> Dict[str, Any]:
         """
         Filter destinations for family-friendliness using LLM with web search
 
@@ -341,6 +341,7 @@ class TravelTools:
 
         Args:
             destination_names: List of destination names to evaluate (can also accept list of dicts with 'name' key)
+            cancellation_checker: Optional callable that returns True if processing should be cancelled
 
         Returns:
             Dictionary with family-friendly destinations and analysis
@@ -350,6 +351,17 @@ class TravelTools:
             logger.info(f"STARTING FAMILY-FRIENDLY FILTER")
             logger.info(f"Total destinations to analyze: {len(destination_names)}")
             logger.info(f"=" * 80)
+
+            # Check for cancellation at the start
+            if cancellation_checker and cancellation_checker():
+                logger.info("🛑 Processing cancelled before family filter started")
+                return {
+                    'success': False,
+                    'cancelled': True,
+                    'error': 'Processing was cancelled',
+                    'destinations': [],
+                    'analysis_log': []
+                }
 
             # Normalize destination_names - handle both strings and dicts
             normalized_names = []
@@ -411,6 +423,17 @@ class TravelTools:
             start_time = time.time()
 
             for idx, name in enumerate(destination_names, 1):
+                # Check for cancellation before processing each destination
+                if cancellation_checker and cancellation_checker():
+                    logger.info(f"🛑 Processing cancelled at destination {idx}/{len(destination_names)}")
+                    return {
+                        'success': False,
+                        'cancelled': True,
+                        'error': f'Processing was cancelled after analyzing {idx-1}/{len(destination_names)} destinations',
+                        'destinations': family_friendly,  # Return what we have so far
+                        'analysis_log': analysis_log
+                    }
+
                 logger.info(f"\n{'=' * 80}")
                 logger.info(f"Processing destination {idx}/{len(destination_names)}: {name}")
                 logger.info(f"{'=' * 80}")
@@ -627,7 +650,7 @@ Do not include any text before or after the JSON object."""
                 "analysis_log": []
             }
 
-    def filter_by_city(self, city: str, destinations: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def filter_by_city(self, city: str, destinations: List[Dict[str, Any]], cancellation_checker: Optional[callable] = None) -> Dict[str, Any]:
         """
         Filter a list of destinations by city using LLM with web search to find adjacent cities
 
@@ -640,11 +663,24 @@ Do not include any text before or after the JSON object."""
         Args:
             city: Target city name (e.g., 'Delhi', 'Mumbai')
             destinations: List of destination objects to filter (from search_destinations_quantitative)
+            cancellation_checker: Optional callable that returns True if processing should be cancelled
 
         Returns:
             Dictionary with filtered destinations and city_names list (max 5 cities)
         """
         try:
+            # Check for cancellation at the start
+            if cancellation_checker and cancellation_checker():
+                logger = logging.getLogger(__name__)
+                logger.info("🛑 Processing cancelled before city filter started")
+                return {
+                    'success': False,
+                    'cancelled': True,
+                    'error': 'Processing was cancelled',
+                    'destinations': [],
+                    'city_names': [],
+                    'target_city': city
+                }
             # Configure Gemini client with API key
             client = genai.Client(api_key=os.environ.get('GOOGLE_API_KEY'))
 

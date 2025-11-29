@@ -132,7 +132,8 @@ class DestinationSuggester:
                            city: Optional[str] = None,
                            hours: Optional[float] = None,
                            budget: Optional[float] = None,
-                           max_iterations: int = 5) -> Dict[str, Any]:
+                           max_iterations: int = 5,
+                           cancellation_checker: Optional[callable] = None) -> Dict[str, Any]:
         """
         Suggest destinations based on user preferences using a deterministic filtering pipeline
 
@@ -164,11 +165,24 @@ class DestinationSuggester:
             hours: Available time in hours (can be decimal, e.g., 0.5, 1.5, 8.25)
             budget: Budget in rupees
             max_iterations: Maximum tool calling iterations (deprecated - kept for compatibility)
+            cancellation_checker: Optional callable that returns True if processing should be cancelled
 
         Returns:
             Dictionary with recommendations and reasoning
         """
         print(f"\n🔍 Starting deterministic filtering pipeline...\n")
+
+        # Check for cancellation at the start
+        if cancellation_checker and cancellation_checker():
+            print("🛑 Processing cancelled before starting")
+            return {
+                'success': False,
+                'cancelled': True,
+                'error': 'Processing was cancelled',
+                'query': f"destination_type={destination_type}, hours={hours}, budget={budget}, city={city}",
+                'tools_used': [],
+                'iterations': 0
+            }
 
         filtering_steps = []
         initial_count = len(self.dataset.df)
@@ -237,8 +251,33 @@ class DestinationSuggester:
             print(f"   Finding cities adjacent to {city}...")
 
             try:
+                # Check for cancellation before city filter
+                if cancellation_checker and cancellation_checker():
+                    print("🛑 Processing cancelled during city filter")
+                    return {
+                        'success': False,
+                        'cancelled': True,
+                        'error': 'Processing was cancelled',
+                        'query': f"destination_type={destination_type}, hours={hours}, budget={budget}, city={city}",
+                        'tools_used': tools_used,
+                        'iterations': len(tools_used)
+                    }
+
                 # Use filter_by_city to get adjacent cities and filter destinations
-                city_result = self.tools.filter_by_city(city, destinations_list)
+                city_result = self.tools.filter_by_city(city, destinations_list, cancellation_checker=cancellation_checker)
+
+                # Check if city filter was cancelled
+                if city_result.get('cancelled', False):
+                    logger.info("City filter was cancelled")
+                    return {
+                        'success': False,
+                        'cancelled': True,
+                        'error': 'Processing was cancelled',
+                        'query': f"destination_type={destination_type}, hours={hours}, budget={budget}, city={city}",
+                        'tools_used': [{'tool': 'filter_by_city', 'result': city_result}],
+                        'iterations': 1,
+                        'filtering_steps': filtering_steps
+                    }
 
                 if not city_result.get('success', False):
                     logger.error(f"City filter failed: {city_result.get('error')}")
@@ -290,7 +329,32 @@ class DestinationSuggester:
             print(f"   Analyzing {len(city_filtered_destinations)} destinations...")
 
             try:
-                family_result = self.tools.filter_by_family_friendly(city_filtered_destinations)
+                # Check for cancellation before family filter
+                if cancellation_checker and cancellation_checker():
+                    print("🛑 Processing cancelled before family filter")
+                    return {
+                        'success': False,
+                        'cancelled': True,
+                        'error': 'Processing was cancelled',
+                        'query': f"destination_type={destination_type}, hours={hours}, budget={budget}, city={city}",
+                        'tools_used': tools_used,
+                        'iterations': len(tools_used)
+                    }
+
+                family_result = self.tools.filter_by_family_friendly(city_filtered_destinations, cancellation_checker=cancellation_checker)
+
+                # Check if family filter was cancelled
+                if family_result.get('cancelled', False):
+                    logger.info("Family filter was cancelled")
+                    return {
+                        'success': False,
+                        'cancelled': True,
+                        'error': 'Processing was cancelled',
+                        'query': f"destination_type={destination_type}, hours={hours}, budget={budget}, city={city}",
+                        'tools_used': tools_used + [{'tool': 'filter_by_family_friendly', 'result': family_result}],
+                        'iterations': len(tools_used) + 1,
+                        'filtering_steps': filtering_steps
+                    }
 
                 if not family_result.get('success', False):
                     logger.error(f"Family filter failed: {family_result.get('error')}")
@@ -370,7 +434,32 @@ class DestinationSuggester:
             print(f"   Analyzing {len(top_destinations)} destinations...")
 
             try:
-                family_result = self.tools.filter_by_family_friendly(top_destinations)
+                # Check for cancellation before family filter
+                if cancellation_checker and cancellation_checker():
+                    print("🛑 Processing cancelled before family filter")
+                    return {
+                        'success': False,
+                        'cancelled': True,
+                        'error': 'Processing was cancelled',
+                        'query': f"destination_type={destination_type}, hours={hours}, budget={budget}, city={city}",
+                        'tools_used': tools_used,
+                        'iterations': len(tools_used)
+                    }
+
+                family_result = self.tools.filter_by_family_friendly(top_destinations, cancellation_checker=cancellation_checker)
+
+                # Check if family filter was cancelled
+                if family_result.get('cancelled', False):
+                    logger.info("Family filter was cancelled")
+                    return {
+                        'success': False,
+                        'cancelled': True,
+                        'error': 'Processing was cancelled',
+                        'query': f"destination_type={destination_type}, hours={hours}, budget={budget}, city={city}",
+                        'tools_used': [{'tool': 'filter_by_family_friendly', 'result': family_result}],
+                        'iterations': 1,
+                        'filtering_steps': filtering_steps
+                    }
 
                 if not family_result.get('success', False):
                     logger.error(f"Family filter failed: {family_result.get('error')}")
