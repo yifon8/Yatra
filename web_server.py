@@ -289,7 +289,7 @@ def suggest_destinations():
         if result.get('cancelled', False):
             return jsonify({
                 'success': False,
-                'error': 'Processing was cancelled. Please submit a new search.',
+                'message': 'Session restarted. Please submit a new search.',
                 'cancelled': True
             }), 400
 
