@@ -26,6 +26,10 @@ agent = None
 # Format: {session_id: {'destinations': [...], 'current_page': 0, 'expires': datetime}}
 destinations_cache = {}
 
+# Track active processing sessions and their cancellation flags
+# Format: {session_id: {'cancelled': bool, 'started': datetime}}
+processing_sessions = {}
+
 # Cache cleanup interval
 CACHE_EXPIRY_HOURS = 2
 
@@ -39,6 +43,59 @@ def clean_expired_cache():
     ]
     for key in expired_keys:
         del destinations_cache[key]
+
+
+def is_processing_cancelled(session_id: str) -> bool:
+    """
+    Check if processing has been cancelled for a session
+
+    Args:
+        session_id: Session ID to check
+
+    Returns:
+        True if processing should be cancelled, False otherwise
+    """
+    if session_id in processing_sessions:
+        return processing_sessions[session_id].get('cancelled', False)
+    return False
+
+
+def cancel_processing(session_id: str):
+    """
+    Cancel ongoing processing for a session
+
+    Args:
+        session_id: Session ID to cancel
+    """
+    if session_id in processing_sessions:
+        processing_sessions[session_id]['cancelled'] = True
+        print(f"🛑 Cancelled processing for session: {session_id[:8]}...")
+
+
+def start_processing(session_id: str):
+    """
+    Mark that processing has started for a session
+
+    Args:
+        session_id: Session ID starting processing
+    """
+    processing_sessions[session_id] = {
+        'cancelled': False,
+        'started': datetime.now()
+    }
+    print(f"🚀 Started processing for session: {session_id[:8]}...")
+
+
+def end_processing(session_id: str):
+    """
+    Mark that processing has ended for a session
+
+    Args:
+        session_id: Session ID ending processing
+    """
+    if session_id in processing_sessions:
+        del processing_sessions[session_id]
+        print(f"✅ Ended processing for session: {session_id[:8]}...")
 
 
 def get_or_create_session_id():
@@ -209,13 +266,32 @@ def suggest_destinations():
         print(f"   Duration: {duration} hours" if duration is not None else "   Duration: Not specified")
         print(f"   Budget: ₹{budget:,}" if budget is not None else "   Budget: Not specified")
 
-        # Call the agent
-        result = agent.suggest_destinations(
-            destination_type=destination_type,
-            city=city,
-            hours=duration,
-            budget=budget
-        )
+        # Get or create session ID before starting processing
+        session_id = get_or_create_session_id()
+
+        # Mark processing as started for this session
+        start_processing(session_id)
+
+        try:
+            # Call the agent with cancellation checker
+            result = agent.suggest_destinations(
+                destination_type=destination_type,
+                city=city,
+                hours=duration,
+                budget=budget,
+                cancellation_checker=lambda: is_processing_cancelled(session_id)
+            )
+        finally:
+            # Always end processing when done (success or failure)
+            end_processing(session_id)
+
+        # Check if processing was cancelled
+        if result.get('cancelled', False):
+            return jsonify({
+                'success': False,
+                'error': 'Processing was cancelled. Please submit a new search.',
+                'cancelled': True
+            }), 400
 
         # Check if agent returned an error (e.g., no matches found)
         if not result.get('success', True):
@@ -236,13 +312,14 @@ def suggest_destinations():
         # Clean up expired cache entries
         clean_expired_cache()
 
-        # Get or create session ID and store results in server-side cache
-        session_id = get_or_create_session_id()
-        destinations_cache[session_id] = {
-            'destinations': sorted_destinations,
-            'current_page': 0,
-            'expires': datetime.now() + timedelta(hours=CACHE_EXPIRY_HOURS)
-        }
+        # Store results in server-side cache (session_id already obtained above)
+        # Only cache if processing wasn't cancelled
+        if not is_processing_cancelled(session_id):
+            destinations_cache[session_id] = {
+                'destinations': sorted_destinations,
+                'current_page': 0,
+                'expires': datetime.now() + timedelta(hours=CACHE_EXPIRY_HOURS)
+            }
 
         # Get first 3 destinations
         page_size = 3
@@ -353,18 +430,22 @@ def get_more_destinations():
 @app.route('/api/restart', methods=['POST'])
 def restart_search():
     """
-    Restart search - clears backend cache and generates new session ID
+    Restart search - cancels ongoing processing, clears backend cache, and generates new session ID
 
-    This ensures the backend is ready for a fresh form submission.
+    This ensures the backend stops all processing and is ready for a fresh form submission.
     """
     try:
         # Get current session ID
         old_session_id = session.get('search_session_id')
 
-        # Clear the cache for the current session if it exists
-        if old_session_id and old_session_id in destinations_cache:
-            del destinations_cache[old_session_id]
-            print(f"🔄 Cleared cache for session: {old_session_id[:8]}...")
+        if old_session_id:
+            # CRITICAL: Cancel any ongoing processing for this session
+            cancel_processing(old_session_id)
+
+            # Clear the cache for the current session if it exists
+            if old_session_id in destinations_cache:
+                del destinations_cache[old_session_id]
+                print(f"🔄 Cleared cache for session: {old_session_id[:8]}...")
 
         # Generate a new session ID to ensure a clean slate
         session['search_session_id'] = str(uuid.uuid4())
@@ -373,7 +454,7 @@ def restart_search():
 
         return jsonify({
             'success': True,
-            'message': 'Backend reset successfully. Ready for new search.'
+            'message': 'Backend reset successfully. Ongoing processing cancelled. Ready for new search.'
         })
 
     except Exception as e:
