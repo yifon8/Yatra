@@ -513,6 +513,14 @@
                             moreBtn.style.display = 'none';
                         }
                     }
+                } else if (result.cancelled && result.message) {
+                    // Session was restarted - show informational message without error icon
+                    resultsContent.innerHTML = `
+                        <p style="color: #666; text-align: center; font-weight: 600;">
+                            ${result.message}
+                        </p>
+                    `;
+                    moreBtn.style.display = 'none';
                 } else if (result.error) {
                     // Server returned a specific error message (400 or other error)
                     resultsContent.innerHTML = `
@@ -599,6 +607,14 @@
                             moreBtn.style.display = 'none';
                         }
                     }
+                } else if (result.cancelled && result.message) {
+                    // Session was restarted - show informational message without error icon
+                    resultsContent.innerHTML = `
+                        <p style="color: #666; text-align: center; font-weight: 600;">
+                            ${result.message}
+                        </p>
+                    `;
+                    moreBtn.style.display = 'none';
                 } else if (result.error) {
                     resultsContent.innerHTML = `
                         <p style="color: #d97531;">
