@@ -759,37 +759,6 @@
             }
         }
 
-        // Helper function to load image from backend API
-        async function loadImageAsBase64(query) {
-            try {
-                // Fetch image from backend proxy endpoint
-                const response = await fetch(`/api/image?query=${encodeURIComponent(query)}`, {
-                    credentials: 'include'
-                });
-
-                if (!response.ok) {
-                    throw new Error('Failed to fetch image from backend');
-                }
-
-                const data = await response.json();
-
-                if (data.success && data.image) {
-                    return data.image; // Already base64 encoded
-                } else {
-                    throw new Error(data.error || 'No image returned');
-                }
-            } catch (error) {
-                console.error('Error loading image:', error);
-                throw error;
-            }
-        }
-
-        // Function to create image query for a destination
-        function getDestinationImageQuery(dest) {
-            // Create search query: destination name + location
-            return `${dest.name} ${dest.city || ''} India tourist landmark`.trim();
-        }
-
         // Function to download PDF with all destinations
         async function downloadPDF() {
             if (!allDestinations || allDestinations.length === 0) {
@@ -799,7 +768,7 @@
 
             try {
                 downloadBtn.disabled = true;
-                downloadBtn.innerHTML = '<img src="Yatra_download.svg" alt="Download"> Generating...';
+                downloadBtn.innerHTML = '<img src="Yatra_download.svg" alt="Download"> Generating PDF...';
 
                 // Initialize jsPDF
                 const { jsPDF } = window.jspdf;
@@ -807,8 +776,11 @@
 
                 const pageWidth = doc.internal.pageSize.getWidth();
                 const pageHeight = doc.internal.pageSize.getHeight();
-                const margin = 15;
+
+                // Set margins to 0.5 inch (12.7mm)
+                const margin = 12.7;
                 const contentWidth = pageWidth - (2 * margin);
+                const bottomMargin = 15; // Extra space for footer
                 let yPosition = margin;
 
                 // Title
@@ -820,86 +792,89 @@
                 // Limit to 25 destinations as requested
                 const destinationsToExport = allDestinations.slice(0, 25);
 
-                // Pre-load all images in parallel for better performance
-                downloadBtn.innerHTML = '<img src="Yatra_download.svg" alt="Download"> Loading images...';
-                const imagePromises = destinationsToExport.map(async (dest, index) => {
-                    try {
-                        const imageQuery = getDestinationImageQuery(dest);
-                        const base64Image = await loadImageAsBase64(imageQuery);
-                        return { index, base64Image, success: true };
-                    } catch (error) {
-                        console.error(`Failed to load image for ${dest.name}:`, error);
-                        return { index, base64Image: null, success: false };
+                // Helper function to calculate height needed for a destination block
+                function calculateDestinationHeight(dest, index) {
+                    let height = 0;
+
+                    // Name and rating
+                    const name = dest.name || dest.place || 'Unknown Destination';
+                    const nameLines = doc.splitTextToSize(`${index + 1}. ${name}`, contentWidth);
+                    height += 7; // Name line height
+
+                    // Type
+                    const type = dest.type || '';
+                    if (type) {
+                        const typeLines = doc.splitTextToSize(`Type: ${type}`, contentWidth);
+                        height += typeLines.length * 5;
                     }
-                });
 
-                const imageResults = await Promise.all(imagePromises);
-                downloadBtn.innerHTML = '<img src="Yatra_download.svg" alt="Download"> Creating PDF...';
+                    // Location
+                    const city = dest.city || '';
+                    const state = dest.state || '';
+                    if (city || state) {
+                        const locationLines = doc.splitTextToSize(`Location: ${city}${city && state ? ', ' : ''}${state}`, contentWidth);
+                        height += locationLines.length * 5;
+                    }
 
-                // Create a map for quick lookup
-                const imageMap = {};
-                imageResults.forEach(result => {
-                    imageMap[result.index] = result.base64Image;
-                });
+                    // Time needed
+                    const time = dest.time_needed_to_visit_in_hrs || '';
+                    if (time && time !== '') {
+                        height += 5;
+                    }
+
+                    // Entry fee
+                    height += 5;
+
+                    // Description
+                    const description = dest.description || '';
+                    if (description && description !== '') {
+                        height += 2;
+                        const descLines = doc.splitTextToSize(description, contentWidth);
+                        height += descLines.length * 4;
+                    }
+
+                    // Family-friendly reason
+                    height += 3;
+                    const familyReason = getFamilyFriendlyReason(dest);
+                    const reasonLines = doc.splitTextToSize(`✓ Family-Friendly: ${familyReason}`, contentWidth);
+                    height += reasonLines.length * 4;
+
+                    // Separator and spacing
+                    height += 16; // 8 for spacing before separator + 8 after
+
+                    return height;
+                }
 
                 // Process each destination
                 for (let i = 0; i < destinationsToExport.length; i++) {
                     const dest = destinationsToExport[i];
 
-                    // Check if we need a new page
-                    if (yPosition > pageHeight - 100) {
+                    // Calculate height needed for this destination
+                    const destinationHeight = calculateDestinationHeight(dest, i);
+
+                    // Check if destination fits on current page
+                    if (yPosition + destinationHeight > pageHeight - bottomMargin) {
+                        // Start new page
                         doc.addPage();
                         yPosition = margin;
                     }
 
-                    // Image dimensions (medium size: 60x40mm)
-                    const imgWidth = 60;
-                    const imgHeight = 40;
-                    const imgX = pageWidth - margin - imgWidth;
-                    const imgY = yPosition;
-
-                    // Add real image if loaded successfully, otherwise show placeholder
-                    if (imageMap[i]) {
-                        try {
-                            doc.addImage(imageMap[i], 'JPEG', imgX, imgY, imgWidth, imgHeight);
-                        } catch (e) {
-                            console.error('Error adding image to PDF:', e);
-                            // Fallback to placeholder
-                            doc.setDrawColor(217, 117, 49);
-                            doc.setLineWidth(0.5);
-                            doc.rect(imgX, imgY, imgWidth, imgHeight);
-                        }
-                    } else {
-                        // Draw placeholder box if image failed to load
-                        doc.setDrawColor(217, 117, 49);
-                        doc.setLineWidth(0.5);
-                        doc.rect(imgX, imgY, imgWidth, imgHeight);
-                        doc.setFontSize(8);
-                        doc.setTextColor(150, 150, 150);
-                        const imagePlaceholderText = dest.name || 'Destination';
-                        const lines = doc.splitTextToSize(imagePlaceholderText, imgWidth - 4);
-                        doc.text(lines, imgX + imgWidth/2, imgY + imgHeight/2, { align: 'center', baseline: 'middle' });
-                    }
-
-                    // Destination name and rating (on the left side)
+                    // Destination name and rating
                     doc.setFontSize(14);
                     doc.setTextColor(217, 117, 49);
                     const name = dest.name || dest.place || 'Unknown Destination';
                     const rating = dest.google_review_rating || dest.rating || 'N/A';
-                    const maxNameWidth = contentWidth - imgWidth - 10;
-                    const nameLines = doc.splitTextToSize(`${i + 1}. ${name}`, maxNameWidth);
-                    doc.text(nameLines[0], margin, yPosition);
 
+                    let nameText = `${i + 1}. ${name}`;
                     if (rating !== 'N/A' && rating !== '') {
-                        doc.setFontSize(10);
-                        const nameWidth = doc.getTextWidth(nameLines[0]);
-                        if (nameWidth + 40 < maxNameWidth) {
-                            doc.text(`★ ${rating}/5`, margin + nameWidth + 3, yPosition);
-                        }
+                        nameText += ` ★ ${rating}/5`;
                     }
+
+                    const nameLines = doc.splitTextToSize(nameText, contentWidth);
+                    doc.text(nameLines, margin, yPosition);
                     yPosition += 7;
 
-                    // Details (keep text on left side, away from image)
+                    // Details
                     doc.setFontSize(10);
                     doc.setTextColor(51, 51, 51);
 
@@ -910,22 +885,20 @@
                     const fee = dest.entrance_fee_in_inr || '';
                     const description = dest.description || '';
 
-                    const textMaxWidth = contentWidth - imgWidth - 10;
-
                     if (type) {
-                        const typeLines = doc.splitTextToSize(`Type: ${type}`, textMaxWidth);
-                        doc.text(typeLines, margin + 5, yPosition);
+                        const typeLines = doc.splitTextToSize(`Type: ${type}`, contentWidth);
+                        doc.text(typeLines, margin, yPosition);
                         yPosition += typeLines.length * 5;
                     }
 
                     if (city || state) {
-                        const locationLines = doc.splitTextToSize(`Location: ${city}${city && state ? ', ' : ''}${state}`, textMaxWidth);
-                        doc.text(locationLines, margin + 5, yPosition);
+                        const locationLines = doc.splitTextToSize(`Location: ${city}${city && state ? ', ' : ''}${state}`, contentWidth);
+                        doc.text(locationLines, margin, yPosition);
                         yPosition += locationLines.length * 5;
                     }
 
                     if (time && time !== '') {
-                        doc.text(`Time needed: ${time} hours`, margin + 5, yPosition);
+                        doc.text(`Time needed: ${time} hours`, margin, yPosition);
                         yPosition += 5;
                     }
 
@@ -938,30 +911,25 @@
                     } else {
                         feeText += 'Information not available';
                     }
-                    doc.text(feeText, margin + 5, yPosition);
+                    doc.text(feeText, margin, yPosition);
                     yPosition += 5;
 
-                    // Move past the image if needed
-                    if (yPosition < imgY + imgHeight) {
-                        yPosition = imgY + imgHeight + 3;
-                    }
-
-                    // Description (now using full width as we're past the image)
+                    // Description
                     if (description && description !== '') {
                         yPosition += 2;
                         doc.setFontSize(9);
-                        const descLines = doc.splitTextToSize(description, contentWidth - 10);
-                        doc.text(descLines, margin + 5, yPosition);
+                        const descLines = doc.splitTextToSize(description, contentWidth);
+                        doc.text(descLines, margin, yPosition);
                         yPosition += descLines.length * 4;
                     }
 
-                    // Family-friendly reason (using full width)
+                    // Family-friendly reason
                     yPosition += 3;
                     doc.setFontSize(9);
                     doc.setTextColor(0, 100, 0); // Green color for family-friendly
                     const familyReason = getFamilyFriendlyReason(dest);
-                    const reasonLines = doc.splitTextToSize(`✓ Family-Friendly: ${familyReason}`, contentWidth - 10);
-                    doc.text(reasonLines, margin + 5, yPosition);
+                    const reasonLines = doc.splitTextToSize(`✓ Family-Friendly: ${familyReason}`, contentWidth);
+                    doc.text(reasonLines, margin, yPosition);
                     yPosition += reasonLines.length * 4 + 8;
 
                     // Add a separator line
