@@ -635,7 +635,7 @@ Do not include any text before or after the JSON object."""
 
                         # Add to family-friendly list if deemed suitable
                         if analysis.get("is_family_friendly", False):
-                            logger.info(f"✓ {name} is family-friendly! Adding to results.")
+                            logger.info(f"[OK] {name} is family-friendly! Adding to results.")
                             # Enrich destination details with LLM analysis
                             details['family_friendly_analysis'] = {
                                 "confidence": analysis.get("confidence", "unknown"),
@@ -645,7 +645,7 @@ Do not include any text before or after the JSON object."""
                             }
                             family_friendly.append(details)
                         else:
-                            logger.info(f"✗ {name} is NOT family-friendly. Excluding from results.")
+                            logger.info(f"[NO] {name} is NOT family-friendly. Excluding from results.")
                             logger.info(f"Reasoning: {analysis.get('reasoning', 'N/A')}")
 
                         dest_duration = time.time() - dest_start_time
