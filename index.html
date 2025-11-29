@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Yatra - Your Travel Agent for India</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -174,6 +175,41 @@
             margin-bottom: 19px;
             text-align: center;
             text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            position: relative;
+        }
+
+        .download-button {
+            position: absolute;
+            right: 0;
+            background: linear-gradient(135deg, #d97531 0%, #b85a1f 100%);
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(217, 117, 49, 0.3);
+            transition: transform 0.2s, box-shadow 0.2s;
+            display: none;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .download-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(217, 117, 49, 0.4);
+        }
+
+        .download-button:active {
+            transform: translateY(0);
+        }
+
+        .download-button img {
+            width: 20px;
+            height: 20px;
         }
 
         .results-content {
@@ -308,7 +344,12 @@
 
         <!-- Results Container -->
         <div class="results-container" id="resultsContainer">
-            <div class="results-title">Yatra says:</div>
+            <div class="results-title">
+                <span>Yatra says:</span>
+                <button type="button" class="download-button" id="downloadBtn">
+                    <img src="Yatra_download.svg" alt="Download">
+                </button>
+            </div>
             <div class="results-divider"></div>
             <div class="results-content" id="resultsContent">
                 <p>Your travel recommendations will appear here...</p>
@@ -330,11 +371,13 @@
         const submitBtn = document.getElementById('submitBtn');
         const restartBtn = document.getElementById('restartBtn');
         const moreBtn = document.getElementById('moreBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
         const resultsContent = document.getElementById('resultsContent');
 
         // Track current state
         let hasMoreResults = false;
         let isEndOfResults = false;
+        let allDestinations = [];
 
         // Function to get form data
         function getFormData() {
@@ -431,8 +474,12 @@
         function displayDestinations(destinations) {
             if (!destinations || destinations.length === 0) {
                 resultsContent.innerHTML = '<p>No destinations found matching your criteria.</p>';
+                downloadBtn.style.display = 'none';
                 return;
             }
+
+            // Update the list of all destinations (append new ones from "More" button)
+            allDestinations = destinations;
 
             const listItems = destinations.map(dest => {
                 return `<li>${formatDestination(dest)}</li>`;
@@ -443,6 +490,9 @@
                     ${listItems}
                 </ul>
             `;
+
+            // Show download button when there are results
+            downloadBtn.style.display = 'flex';
         }
 
         // Function to send request to backend
@@ -670,15 +720,217 @@
             // Reset state
             hasMoreResults = false;
             isEndOfResults = false;
+            allDestinations = [];
 
-            // Hide More button (will be shown only if needed after next search)
+            // Hide More and Download buttons
             moreBtn.style.display = 'none';
+            downloadBtn.style.display = 'none';
+        }
+
+        // Function to generate family-friendly reason based on destination type and info
+        function getFamilyFriendlyReason(dest) {
+            const type = (dest.type || '').toLowerCase();
+            const name = dest.name || 'this destination';
+
+            // Generate context-aware family-friendly reasons
+            if (type.includes('beach') || type.includes('coastal')) {
+                return `Perfect for building sandcastles and enjoying calm waters with children.`;
+            } else if (type.includes('fort') || type.includes('palace') || type.includes('historical')) {
+                return `An educational journey through history that captivates young minds with stories of kings and queens.`;
+            } else if (type.includes('temple') || type.includes('religious')) {
+                return `A peaceful and culturally enriching experience suitable for families seeking spiritual connection.`;
+            } else if (type.includes('park') || type.includes('garden') || type.includes('nature')) {
+                return `Offers wide open spaces for children to play and explore nature safely.`;
+            } else if (type.includes('museum') || type.includes('gallery')) {
+                return `Interactive exhibits and educational displays engage children while teaching them about art and history.`;
+            } else if (type.includes('wildlife') || type.includes('zoo') || type.includes('safari')) {
+                return `Exciting animal encounters create unforgettable memories for the whole family.`;
+            } else if (type.includes('lake') || type.includes('water')) {
+                return `Serene water activities and boat rides provide safe entertainment for all ages.`;
+            } else if (type.includes('hill station') || type.includes('mountain')) {
+                return `Cool climate and scenic views offer a refreshing escape with family-friendly hiking trails.`;
+            } else if (type.includes('monument') || type.includes('memorial')) {
+                return `Impressive architecture and historical significance provide educational value for curious young minds.`;
+            } else if (type.includes('amusement') || type.includes('theme park')) {
+                return `Thrilling rides and attractions designed specifically for family fun and bonding.`;
+            } else {
+                // Default reason
+                return `A well-maintained destination with facilities suitable for families with children of all ages.`;
+            }
+        }
+
+        // Function to download PDF with all destinations
+        async function downloadPDF() {
+            if (!allDestinations || allDestinations.length === 0) {
+                alert('No destinations to download. Please search for destinations first.');
+                return;
+            }
+
+            try {
+                downloadBtn.disabled = true;
+                downloadBtn.innerHTML = '<img src="Yatra_download.svg" alt="Download"> Generating...';
+
+                // Initialize jsPDF
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+
+                const pageWidth = doc.internal.pageSize.getWidth();
+                const pageHeight = doc.internal.pageSize.getHeight();
+                const margin = 15;
+                const contentWidth = pageWidth - (2 * margin);
+                let yPosition = margin;
+
+                // Title
+                doc.setFontSize(20);
+                doc.setTextColor(217, 117, 49); // Orange color
+                doc.text('Yatra - Family-Friendly Destinations', pageWidth / 2, yPosition, { align: 'center' });
+                yPosition += 15;
+
+                // Limit to 25 destinations as requested
+                const destinationsToExport = allDestinations.slice(0, 25);
+
+                // Process each destination
+                for (let i = 0; i < destinationsToExport.length; i++) {
+                    const dest = destinationsToExport[i];
+
+                    // Check if we need a new page
+                    if (yPosition > pageHeight - 100) {
+                        doc.addPage();
+                        yPosition = margin;
+                    }
+
+                    // Image placeholder (medium size: 60x40mm)
+                    const imgWidth = 60;
+                    const imgHeight = 40;
+                    const imgX = pageWidth - margin - imgWidth;
+                    const imgY = yPosition;
+
+                    // Draw image placeholder box
+                    doc.setDrawColor(217, 117, 49);
+                    doc.setLineWidth(0.5);
+                    doc.rect(imgX, imgY, imgWidth, imgHeight);
+
+                    // Add placeholder text in the image box
+                    doc.setFontSize(8);
+                    doc.setTextColor(150, 150, 150);
+                    const imagePlaceholderText = dest.name || 'Destination';
+                    const lines = doc.splitTextToSize(imagePlaceholderText, imgWidth - 4);
+                    doc.text(lines, imgX + imgWidth/2, imgY + imgHeight/2, { align: 'center', baseline: 'middle' });
+
+                    // Destination name and rating (on the left side)
+                    doc.setFontSize(14);
+                    doc.setTextColor(217, 117, 49);
+                    const name = dest.name || dest.place || 'Unknown Destination';
+                    const rating = dest.google_review_rating || dest.rating || 'N/A';
+                    const maxNameWidth = contentWidth - imgWidth - 10;
+                    const nameLines = doc.splitTextToSize(`${i + 1}. ${name}`, maxNameWidth);
+                    doc.text(nameLines[0], margin, yPosition);
+
+                    if (rating !== 'N/A' && rating !== '') {
+                        doc.setFontSize(10);
+                        const nameWidth = doc.getTextWidth(nameLines[0]);
+                        if (nameWidth + 40 < maxNameWidth) {
+                            doc.text(`★ ${rating}/5`, margin + nameWidth + 3, yPosition);
+                        }
+                    }
+                    yPosition += 7;
+
+                    // Details (keep text on left side, away from image)
+                    doc.setFontSize(10);
+                    doc.setTextColor(51, 51, 51);
+
+                    const type = dest.type || '';
+                    const city = dest.city || '';
+                    const state = dest.state || '';
+                    const time = dest.time_needed_to_visit_in_hrs || '';
+                    const fee = dest.entrance_fee_in_inr || '';
+                    const description = dest.description || '';
+
+                    const textMaxWidth = contentWidth - imgWidth - 10;
+
+                    if (type) {
+                        const typeLines = doc.splitTextToSize(`Type: ${type}`, textMaxWidth);
+                        doc.text(typeLines, margin + 5, yPosition);
+                        yPosition += typeLines.length * 5;
+                    }
+
+                    if (city || state) {
+                        const locationLines = doc.splitTextToSize(`Location: ${city}${city && state ? ', ' : ''}${state}`, textMaxWidth);
+                        doc.text(locationLines, margin + 5, yPosition);
+                        yPosition += locationLines.length * 5;
+                    }
+
+                    if (time && time !== '') {
+                        doc.text(`Time needed: ${time} hours`, margin + 5, yPosition);
+                        yPosition += 5;
+                    }
+
+                    // Entry fee
+                    let feeText = 'Entry Fee: ';
+                    if (fee === 0 || fee === '0') {
+                        feeText += 'Free';
+                    } else if (fee && fee !== '') {
+                        feeText += `₹${fee}`;
+                    } else {
+                        feeText += 'Information not available';
+                    }
+                    doc.text(feeText, margin + 5, yPosition);
+                    yPosition += 5;
+
+                    // Move past the image if needed
+                    if (yPosition < imgY + imgHeight) {
+                        yPosition = imgY + imgHeight + 3;
+                    }
+
+                    // Description (now using full width as we're past the image)
+                    if (description && description !== '') {
+                        yPosition += 2;
+                        doc.setFontSize(9);
+                        const descLines = doc.splitTextToSize(description, contentWidth - 10);
+                        doc.text(descLines, margin + 5, yPosition);
+                        yPosition += descLines.length * 4;
+                    }
+
+                    // Family-friendly reason (using full width)
+                    yPosition += 3;
+                    doc.setFontSize(9);
+                    doc.setTextColor(0, 100, 0); // Green color for family-friendly
+                    const familyReason = getFamilyFriendlyReason(dest);
+                    const reasonLines = doc.splitTextToSize(`✓ Family-Friendly: ${familyReason}`, contentWidth - 10);
+                    doc.text(reasonLines, margin + 5, yPosition);
+                    yPosition += reasonLines.length * 4 + 8;
+
+                    // Add a separator line
+                    doc.setDrawColor(217, 117, 49);
+                    doc.setLineWidth(0.5);
+                    doc.line(margin, yPosition, pageWidth - margin, yPosition);
+                    yPosition += 8;
+                }
+
+                // Footer on last page
+                doc.setFontSize(8);
+                doc.setTextColor(128, 128, 128);
+                doc.text('Generated by Yatra - Your Family Travel Agent for India', pageWidth / 2, pageHeight - 10, { align: 'center' });
+
+                // Save the PDF
+                const timestamp = new Date().toISOString().split('T')[0];
+                doc.save(`Yatra_Destinations_${timestamp}.pdf`);
+
+                downloadBtn.innerHTML = '<img src="Yatra_download.svg" alt="Download">';
+            } catch (error) {
+                console.error('Error generating PDF:', error);
+                alert('Failed to generate PDF. Please try again.');
+                downloadBtn.innerHTML = '<img src="Yatra_download.svg" alt="Download">';
+            } finally {
+                downloadBtn.disabled = false;
+            }
         }
 
         // Event listeners
         submitBtn.addEventListener('click', submitForm);
         restartBtn.addEventListener('click', restartSearch);
         moreBtn.addEventListener('click', getMoreDestinations);
+        downloadBtn.addEventListener('click', downloadPDF);
 
         // Allow Enter key to submit form
         document.addEventListener('keypress', (e) => {
