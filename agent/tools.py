@@ -108,6 +108,122 @@ class TravelTools:
         """
         return [types.Tool(google_search=types.GoogleSearch())]
 
+    def _validate_city_in_india(self, city: str) -> Dict[str, Any]:
+        """
+        Validate if the given city is located in India using LLM with web search
+
+        Args:
+            city: City name to validate
+
+        Returns:
+            Dictionary with validation result:
+            {
+                "is_valid": bool,  # True if city is in India, False otherwise
+                "country": str,    # The country where the city is located
+                "error": str       # Error message if validation failed
+            }
+        """
+        try:
+            # Check if GOOGLE_API_KEY is set
+            google_api_key = os.environ.get('GOOGLE_API_KEY')
+
+            if not google_api_key:
+                # If no API key, check against fallback dictionary
+                # If city is in fallback, assume it's valid (all fallback cities are Indian)
+                city_lower = city.strip().lower()
+                if city_lower in NEIGHBORING_CITIES_FALLBACK:
+                    return {
+                        "is_valid": True,
+                        "country": "India",
+                        "method": "fallback_dictionary"
+                    }
+                # If not in fallback and no API key, we can't validate
+                # Be permissive and allow it (avoid false negatives)
+                logger.warning(f"⚠️  Cannot validate city '{city}' - no API key available")
+                return {
+                    "is_valid": True,  # Assume valid to avoid blocking legitimate Indian cities
+                    "country": "Unknown",
+                    "method": "no_validation"
+                }
+
+            # Configure Gemini client with API key
+            client = genai.Client(api_key=google_api_key)
+
+            # Create prompt for LLM to validate city location
+            prompt = f"""You are validating whether a city is located in India.
+
+City to validate: {city}
+
+TASK: Search the web and determine:
+1. Is "{city}" a city or town located in India?
+2. If not in India, which country is it located in?
+
+SEARCH STRATEGY:
+- Search for "{city} location country"
+- Search for "{city} India"
+- Check Wikipedia, Google Maps, or geographic databases
+
+IMPORTANT:
+- Be precise about the country
+- If there are multiple cities with the same name, check if ANY of them is in India
+- For example, "Boston" exists in USA (Massachusetts), not in India
+
+Respond ONLY with a JSON object in this exact format:
+{{
+    "is_in_india": true/false,
+    "country": "Country Name",
+    "city_full_name": "Full name of the city with state/region if applicable",
+    "confidence": "high/medium/low",
+    "reasoning": "Brief explanation based on web search results"
+}}
+
+Do not include any text before or after the JSON object."""
+
+            # Generate response with web search
+            config = types.GenerateContentConfig(
+                temperature=0.0,  # Deterministic responses
+                tools=TravelTools._get_google_search_tool()  # Enable web search
+            )
+
+            response = client.models.generate_content(
+                model='gemini-2.5-flash-lite',
+                contents=prompt,
+                config=config
+            )
+
+            # Parse the LLM response
+            response_text = response.text.strip()
+
+            # Extract JSON from response (handle markdown code blocks if present)
+            if '```json' in response_text:
+                response_text = response_text.split('```json')[1].split('```')[0].strip()
+            elif '```' in response_text:
+                response_text = response_text.split('```')[1].split('```')[0].strip()
+
+            validation_result = json.loads(response_text)
+
+            # Log the validation result
+            logger.info(f"City validation for '{city}': {validation_result}")
+
+            return {
+                "is_valid": validation_result.get("is_in_india", False),
+                "country": validation_result.get("country", "Unknown"),
+                "full_name": validation_result.get("city_full_name", city),
+                "confidence": validation_result.get("confidence", "unknown"),
+                "reasoning": validation_result.get("reasoning", ""),
+                "method": "llm_validation"
+            }
+
+        except Exception as e:
+            logger.error(f"Error validating city '{city}': {str(e)}")
+            # On error, be permissive to avoid blocking legitimate requests
+            return {
+                "is_valid": True,  # Assume valid on error to avoid false negatives
+                "country": "Unknown",
+                "error": str(e),
+                "method": "validation_error"
+            }
+
     @staticmethod
     def _get_neighboring_cities_fallback(city: str) -> List[str]:
         """
@@ -729,10 +845,11 @@ Do not include any text before or after the JSON object."""
         Filter a list of destinations by city using LLM with web search to find adjacent cities
 
         Workflow:
-        1. Use LLM with web search to find at most 4 cities adjacent to the input city
-        2. Add the input city to the list (city_names will have at most 5 cities: target + 4 bordering)
-        3. Filter the provided destinations list to only include those in the city or adjacent cities
-        4. Return filtered destinations
+        1. Validate that the city is located in India
+        2. Use LLM with web search to find at most 4 cities adjacent to the input city
+        3. Add the input city to the list (city_names will have at most 5 cities: target + 4 bordering)
+        4. Filter the provided destinations list to only include those in the city or adjacent cities
+        5. Return filtered destinations
 
         Args:
             city: Target city name (e.g., 'Delhi', 'Mumbai')
@@ -755,6 +872,31 @@ Do not include any text before or after the JSON object."""
                     'city_names': [],
                     'target_city': city
                 }
+
+            # Validate that the city is in India
+            validation_result = self._validate_city_in_india(city)
+
+            if not validation_result.get("is_valid", True):
+                # City is not in India - return error
+                country = validation_result.get("country", "Unknown")
+                logger = logging.getLogger(__name__)
+                logger.warning(f"⚠️  City '{city}' is not in India (located in {country})")
+
+                return {
+                    'success': False,
+                    'error': f'Please enter a city or town that is found in India. Yatra is tailored to destinations within the country of India.',
+                    'destinations': [],
+                    'city_names': [],
+                    'target_city': city,
+                    'validation_info': {
+                        'city': city,
+                        'country': country,
+                        'message': f'{city} is located in {country}, not India'
+                    }
+                }
+
+            logger = logging.getLogger(__name__)
+            logger.info(f"✓ City '{city}' validated as being in India")
 
             # Check if GOOGLE_API_KEY is set
             google_api_key = os.environ.get('GOOGLE_API_KEY')
