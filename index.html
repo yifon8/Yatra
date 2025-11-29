@@ -759,6 +759,39 @@
             }
         }
 
+        // Helper function to load image from URL and convert to base64
+        async function loadImageAsBase64(imageUrl) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.crossOrigin = 'Anonymous';
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0);
+                    try {
+                        const dataURL = canvas.toDataURL('image/jpeg', 0.7);
+                        resolve(dataURL);
+                    } catch (e) {
+                        reject(e);
+                    }
+                };
+                img.onerror = () => reject(new Error('Failed to load image'));
+                img.src = imageUrl;
+            });
+        }
+
+        // Function to get image URL for a destination using Unsplash
+        function getDestinationImageUrl(dest) {
+            // Create search query: destination name + location
+            const query = encodeURIComponent(`${dest.name} ${dest.city || ''} India tourist landmark`.trim());
+
+            // Unsplash Source API - provides random images matching query
+            // Size: 800x600 (medium quality for PDF)
+            return `https://source.unsplash.com/800x600/?${query}`;
+        }
+
         // Function to download PDF with all destinations
         async function downloadPDF() {
             if (!allDestinations || allDestinations.length === 0) {
@@ -789,6 +822,28 @@
                 // Limit to 25 destinations as requested
                 const destinationsToExport = allDestinations.slice(0, 25);
 
+                // Pre-load all images in parallel for better performance
+                downloadBtn.innerHTML = '<img src="Yatra_download.svg" alt="Download"> Loading images...';
+                const imagePromises = destinationsToExport.map(async (dest, index) => {
+                    try {
+                        const imageUrl = getDestinationImageUrl(dest);
+                        const base64Image = await loadImageAsBase64(imageUrl);
+                        return { index, base64Image, success: true };
+                    } catch (error) {
+                        console.error(`Failed to load image for ${dest.name}:`, error);
+                        return { index, base64Image: null, success: false };
+                    }
+                });
+
+                const imageResults = await Promise.all(imagePromises);
+                downloadBtn.innerHTML = '<img src="Yatra_download.svg" alt="Download"> Creating PDF...';
+
+                // Create a map for quick lookup
+                const imageMap = {};
+                imageResults.forEach(result => {
+                    imageMap[result.index] = result.base64Image;
+                });
+
                 // Process each destination
                 for (let i = 0; i < destinationsToExport.length; i++) {
                     const dest = destinationsToExport[i];
@@ -799,23 +854,34 @@
                         yPosition = margin;
                     }
 
-                    // Image placeholder (medium size: 60x40mm)
+                    // Image dimensions (medium size: 60x40mm)
                     const imgWidth = 60;
                     const imgHeight = 40;
                     const imgX = pageWidth - margin - imgWidth;
                     const imgY = yPosition;
 
-                    // Draw image placeholder box
-                    doc.setDrawColor(217, 117, 49);
-                    doc.setLineWidth(0.5);
-                    doc.rect(imgX, imgY, imgWidth, imgHeight);
-
-                    // Add placeholder text in the image box
-                    doc.setFontSize(8);
-                    doc.setTextColor(150, 150, 150);
-                    const imagePlaceholderText = dest.name || 'Destination';
-                    const lines = doc.splitTextToSize(imagePlaceholderText, imgWidth - 4);
-                    doc.text(lines, imgX + imgWidth/2, imgY + imgHeight/2, { align: 'center', baseline: 'middle' });
+                    // Add real image if loaded successfully, otherwise show placeholder
+                    if (imageMap[i]) {
+                        try {
+                            doc.addImage(imageMap[i], 'JPEG', imgX, imgY, imgWidth, imgHeight);
+                        } catch (e) {
+                            console.error('Error adding image to PDF:', e);
+                            // Fallback to placeholder
+                            doc.setDrawColor(217, 117, 49);
+                            doc.setLineWidth(0.5);
+                            doc.rect(imgX, imgY, imgWidth, imgHeight);
+                        }
+                    } else {
+                        // Draw placeholder box if image failed to load
+                        doc.setDrawColor(217, 117, 49);
+                        doc.setLineWidth(0.5);
+                        doc.rect(imgX, imgY, imgWidth, imgHeight);
+                        doc.setFontSize(8);
+                        doc.setTextColor(150, 150, 150);
+                        const imagePlaceholderText = dest.name || 'Destination';
+                        const lines = doc.splitTextToSize(imagePlaceholderText, imgWidth - 4);
+                        doc.text(lines, imgX + imgWidth/2, imgY + imgHeight/2, { align: 'center', baseline: 'middle' });
+                    }
 
                     // Destination name and rating (on the left side)
                     doc.setFontSize(14);
