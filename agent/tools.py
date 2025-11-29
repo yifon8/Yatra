@@ -120,7 +120,7 @@ class TravelTools:
             },
             {
                 "name": "filter_by_city",
-                "description": "Filter a list of destinations by city using LLM with web search to find adjacent cities. First uses LLM with web search to find cities adjacent to the input city, then filters the provided destinations list to return only those in the input city or adjacent cities. This tool should be used AFTER search_destinations_quantitative to filter the results by city.",
+                "description": "Filter a list of destinations by city using LLM with web search to find at most 4 adjacent cities. First uses LLM with web search to find at most 4 cities adjacent to the input city, then filters the provided destinations list to return only those in the input city or adjacent cities (max 5 cities total: target city + 4 bordering cities). This tool should be used AFTER search_destinations_quantitative to filter the results by city.",
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -632,8 +632,8 @@ Do not include any text before or after the JSON object."""
         Filter a list of destinations by city using LLM with web search to find adjacent cities
 
         Workflow:
-        1. Use LLM with web search to find cities adjacent to the input city
-        2. Add the input city to the list
+        1. Use LLM with web search to find at most 4 cities adjacent to the input city
+        2. Add the input city to the list (city_names will have at most 5 cities: target + 4 bordering)
         3. Filter the provided destinations list to only include those in the city or adjacent cities
         4. Return filtered destinations
 
@@ -642,7 +642,7 @@ Do not include any text before or after the JSON object."""
             destinations: List of destination objects to filter (from search_destinations_quantitative)
 
         Returns:
-            Dictionary with filtered destinations
+            Dictionary with filtered destinations and city_names list (max 5 cities)
         """
         try:
             # Configure Gemini client with API key
@@ -653,11 +653,13 @@ Do not include any text before or after the JSON object."""
 
 Target City: {city}, India
 
-IMPORTANT: Search the web and identify ALL cities that are:
-1. Part of the {city} metropolitan area or region (e.g., for Mumbai: Navi Mumbai, Thane, Kalyan, Mira-Bhayandar, Vasai-Virar)
+IMPORTANT: Search the web and identify AT MOST 4 cities that are:
+1. Part of the {city} metropolitan area or region (e.g., for Mumbai: Navi Mumbai, Thane, Kalyan, Mira-Bhayandar)
 2. Neighboring cities that share a border with {city}
 3. Satellite cities or suburbs of {city}
 4. Cities within 50km that are commonly considered part of the greater {city} area
+
+Prioritize the most significant/populous bordering cities. Return a MAXIMUM of 4 cities.
 
 SEARCH STRATEGY:
 - Search for "{city} metropolitan area cities"
@@ -685,7 +687,7 @@ Respond ONLY with a JSON object in this exact format:
     "source_info": "Brief note about information sources used"
 }}
 
-CRITICAL: Return AT LEAST 3-5 adjacent cities if they exist. Do not return an empty list.
+CRITICAL: Return AT MOST 4 adjacent cities. Prioritize the most important/populous ones if there are more than 4 options.
 
 Do not include any text before or after the JSON object."""
 
@@ -721,6 +723,9 @@ Do not include any text before or after the JSON object."""
 
                     # Get adjacent cities from LLM response
                     adjacent_cities = analysis.get("adjacent_cities", [])
+
+                    # Limit to at most 4 bordering cities
+                    adjacent_cities = adjacent_cities[:4]
 
                     # Log the LLM analysis for debugging
                     logger = logging.getLogger(__name__)

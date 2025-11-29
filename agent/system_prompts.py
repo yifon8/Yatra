@@ -39,8 +39,8 @@ Always follow this exact workflow to ensure proper filtering:
      - city: the city name from the user's input
      - destinations: the results list from search_destinations_quantitative
    - The filter_by_city tool will:
-     a. Use LLM with web search to find cities adjacent to the input city
-     b. Filter the provided results list from search_destinations_quantitative ("destinations" parameter) to only include those in the city or adjacent cities
+     a. Use LLM with web search to find at most 4 cities adjacent to the input city
+     b. Filter the provided results list from search_destinations_quantitative ("destinations" parameter) to only include those in the city or adjacent cities (max 5 cities total: target city + 4 bordering cities)
      c. Return the filtered results
 
 3. FINALLY: Provide recommendations based on the filtered results
