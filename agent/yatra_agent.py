@@ -280,15 +280,29 @@ class DestinationSuggester:
                     }
 
                 if not city_result.get('success', False):
-                    logger.error(f"City filter failed: {city_result.get('error')}")
-                    return {
-                        'success': False,
-                        'error': f"City filter failed: {city_result.get('error', 'Unknown error')}",
-                        'query': f"destination_type={destination_type}, hours={hours}, budget={budget}, city={city}",
-                        'tools_used': [{'tool': 'filter_by_city', 'result': city_result}],
-                        'iterations': 1,
-                        'filtering_steps': filtering_steps
-                    }
+                    error_msg = city_result.get('error', 'Unknown error')
+                    logger.error(f"City filter failed: {error_msg}")
+
+                    # Check if this is a validation error (city not in India)
+                    # In that case, return the error message as-is without prefix
+                    if 'validation_info' in city_result:
+                        return {
+                            'success': False,
+                            'error': error_msg,
+                            'query': f"destination_type={destination_type}, hours={hours}, budget={budget}, city={city}",
+                            'tools_used': [{'tool': 'filter_by_city', 'result': city_result}],
+                            'iterations': 1,
+                            'filtering_steps': filtering_steps
+                        }
+                    else:
+                        return {
+                            'success': False,
+                            'error': f"City filter failed: {error_msg}",
+                            'query': f"destination_type={destination_type}, hours={hours}, budget={budget}, city={city}",
+                            'tools_used': [{'tool': 'filter_by_city', 'result': city_result}],
+                            'iterations': 1,
+                            'filtering_steps': filtering_steps
+                        }
 
                 city_names = city_result.get('city_names', [city])
                 print(f"   ✓ Found city_names: {', '.join(city_names)}\n")
