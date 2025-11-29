@@ -26,6 +26,65 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
+# Fallback dictionary for neighboring cities when API is unavailable
+# This ensures city filtering still works even when Google API key is missing or API fails
+NEIGHBORING_CITIES_FALLBACK = {
+    # National Capital Region (NCR)
+    "delhi": ["Gurgaon", "Gurugram", "Noida", "Ghaziabad", "Faridabad"],
+    "new delhi": ["Gurgaon", "Gurugram", "Noida", "Ghaziabad", "Faridabad"],
+    "gurgaon": ["Delhi", "Faridabad", "Noida"],
+    "gurugram": ["Delhi", "Faridabad", "Noida"],
+    "noida": ["Delhi", "Ghaziabad", "Greater Noida"],
+    "ghaziabad": ["Delhi", "Noida", "Meerut"],
+    "faridabad": ["Delhi", "Gurgaon", "Gurugram"],
+    "greater noida": ["Noida", "Delhi"],
+
+    # Mumbai Metropolitan Region (MMR)
+    "mumbai": ["Navi Mumbai", "Thane", "Kalyan", "Panvel"],
+    "navi mumbai": ["Mumbai", "Thane", "Panvel"],
+    "thane": ["Mumbai", "Navi Mumbai", "Kalyan", "Bhiwandi"],
+    "kalyan": ["Mumbai", "Thane", "Dombivli"],
+    "panvel": ["Mumbai", "Navi Mumbai"],
+    "vasai-virar": ["Mumbai", "Thane"],
+    "mira-bhayandar": ["Mumbai", "Thane"],
+    "bhiwandi": ["Thane", "Kalyan"],
+
+    # Bangalore (Bengaluru) Metropolitan Area
+    "bangalore": ["Mysore", "Tumkur", "Hosur"],
+    "bengaluru": ["Mysore", "Tumkur", "Hosur"],
+    "mysore": ["Bangalore", "Bengaluru"],
+    "mysuru": ["Bangalore", "Bengaluru"],
+
+    # Hyderabad Metropolitan Area
+    "hyderabad": ["Secunderabad", "Cyberabad"],
+    "secunderabad": ["Hyderabad"],
+
+    # Chennai Metropolitan Area
+    "chennai": ["Kanchipuram", "Tiruvallur", "Chengalpattu"],
+
+    # Kolkata Metropolitan Area
+    "kolkata": ["Howrah", "Salt Lake"],
+    "howrah": ["Kolkata"],
+
+    # Pune Metropolitan Region
+    "pune": ["Pimpri-Chinchwad", "Lonavala", "Khadki"],
+    "pimpri-chinchwad": ["Pune"],
+
+    # Ahmedabad Metropolitan Area
+    "ahmedabad": ["Gandhinagar"],
+    "gandhinagar": ["Ahmedabad"],
+
+    # Jaipur Metropolitan Area
+    "jaipur": ["Ajmer"],
+
+    # Lucknow Metropolitan Area
+    "lucknow": ["Kanpur"],
+
+    # Kochi Metropolitan Area
+    "kochi": ["Ernakulam"],
+    "ernakulam": ["Kochi"],
+}
+
 
 class TravelTools:
     """Collection of tools for the travel agent to use with Google ADK"""
@@ -48,6 +107,21 @@ class TravelTools:
             List containing configured Google Search tool
         """
         return [types.Tool(google_search=types.GoogleSearch())]
+
+    @staticmethod
+    def _get_neighboring_cities_fallback(city: str) -> List[str]:
+        """
+        Get neighboring cities from hardcoded fallback dictionary
+        Used when Google API is unavailable or fails
+
+        Args:
+            city: Target city name
+
+        Returns:
+            List of neighboring cities, or empty list if city not in fallback
+        """
+        city_lower = city.strip().lower()
+        return NEIGHBORING_CITIES_FALLBACK.get(city_lower, [])
 
     def get_tool_declarations(self) -> List[Dict[str, Any]]:
         """
@@ -681,11 +755,33 @@ Do not include any text before or after the JSON object."""
                     'city_names': [],
                     'target_city': city
                 }
-            # Configure Gemini client with API key
-            client = genai.Client(api_key=os.environ.get('GOOGLE_API_KEY'))
 
-            # Create prompt for LLM to find adjacent cities
-            prompt = f"""You are identifying cities that are geographically adjacent to or part of the metropolitan area of a target city in India.
+            # Check if GOOGLE_API_KEY is set
+            google_api_key = os.environ.get('GOOGLE_API_KEY')
+            use_fallback = False
+            fallback_reason = None
+
+            if not google_api_key:
+                use_fallback = True
+                fallback_reason = "Google API key not configured"
+                logger = logging.getLogger(__name__)
+                logger.warning(f"⚠️  GOOGLE_API_KEY not set - using hardcoded neighboring cities for {city}")
+
+            # Try to use fallback first if API key is missing
+            if use_fallback:
+                adjacent_cities = self._get_neighboring_cities_fallback(city)
+                city_names = [city.strip()]
+                city_names.extend([c.strip() for c in adjacent_cities if c.strip()])
+                city_names = list(dict.fromkeys(city_names))
+
+                logger = logging.getLogger(__name__)
+                logger.info(f"Using fallback neighboring cities for {city}: {adjacent_cities}")
+            else:
+                # Configure Gemini client with API key
+                client = genai.Client(api_key=google_api_key)
+
+                # Create prompt for LLM to find adjacent cities
+                prompt = f"""You are identifying cities that are geographically adjacent to or part of the metropolitan area of a target city in India.
 
 Target City: {city}, India
 
@@ -727,98 +823,103 @@ CRITICAL: Return AT MOST 4 adjacent cities. Prioritize the most important/populo
 
 Do not include any text before or after the JSON object."""
 
-            # Retry logic with exponential backoff for API quota errors
-            max_retries = 3
-            retry_delays = [2, 4, 8]  # seconds
-            response = None
-            response_text = None
+                # Retry logic with exponential backoff for API quota errors
+                max_retries = 3
+                retry_delays = [2, 4, 8]  # seconds
+                response = None
+                response_text = None
 
-            for attempt in range(max_retries + 1):
-                try:
-                    # Generate response with grounding (web search)
-                    config = types.GenerateContentConfig(
-                        temperature=0.0,  # Deterministic responses
-                        tools=TravelTools._get_google_search_tool()  # Enable web search with Google Search tool
-                    )
-                    response = client.models.generate_content(
-                        model='gemini-2.5-flash-lite',
-                        contents=prompt,
-                        config=config
-                    )
+                for attempt in range(max_retries + 1):
+                    try:
+                        # Generate response with grounding (web search)
+                        config = types.GenerateContentConfig(
+                            temperature=0.0,  # Deterministic responses
+                            tools=TravelTools._get_google_search_tool()  # Enable web search with Google Search tool
+                        )
+                        response = client.models.generate_content(
+                            model='gemini-2.5-flash-lite',
+                            contents=prompt,
+                            config=config
+                        )
 
-                    # Parse the LLM response
-                    response_text = response.text.strip()
+                        # Parse the LLM response
+                        response_text = response.text.strip()
 
-                    # Extract JSON from response (handle markdown code blocks if present)
-                    if '```json' in response_text:
-                        response_text = response_text.split('```json')[1].split('```')[0].strip()
-                    elif '```' in response_text:
-                        response_text = response_text.split('```')[1].split('```')[0].strip()
+                        # Extract JSON from response (handle markdown code blocks if present)
+                        if '```json' in response_text:
+                            response_text = response_text.split('```json')[1].split('```')[0].strip()
+                        elif '```' in response_text:
+                            response_text = response_text.split('```')[1].split('```')[0].strip()
 
-                    analysis = json.loads(response_text)
+                        analysis = json.loads(response_text)
 
-                    # Get adjacent cities from LLM response
-                    adjacent_cities = analysis.get("adjacent_cities", [])
+                        # Get adjacent cities from LLM response
+                        adjacent_cities = analysis.get("adjacent_cities", [])
 
-                    # Limit to at most 4 bordering cities
-                    adjacent_cities = adjacent_cities[:4]
+                        # Limit to at most 4 bordering cities
+                        adjacent_cities = adjacent_cities[:4]
 
-                    # Log the LLM analysis for debugging
-                    logger = logging.getLogger(__name__)
-                    logger.info(f"LLM found adjacent cities for {city}: {adjacent_cities}")
-                    logger.info(f"LLM reasoning: {analysis.get('reasoning', 'N/A')}")
+                        # Log the LLM analysis for debugging
+                        logger = logging.getLogger(__name__)
+                        logger.info(f"LLM found adjacent cities for {city}: {adjacent_cities}")
+                        logger.info(f"LLM reasoning: {analysis.get('reasoning', 'N/A')}")
 
-                    # Always include the input city
-                    city_names = [city.strip()]
-                    city_names.extend([c.strip() for c in adjacent_cities if c.strip()])
-
-                    # Remove duplicates while preserving order
-                    city_names = list(dict.fromkeys(city_names))
-
-                    logger.info(f"Final city_names list: {city_names}")
-                    break  # Success! Exit retry loop
-
-                except json.JSONDecodeError as je:
-                    # If LLM fails to return valid JSON, just use the input city
-                    logger = logging.getLogger(__name__)
-                    logger.error(f"Failed to parse LLM response for city {city}: {str(je)}")
-                    logger.error(f"Raw response: {response_text if response_text else 'N/A'}")
-                    city_names = [city.strip()]
-                    analysis = {
-                        "error": f"Failed to parse LLM response: {str(je)}",
-                        "fallback": "Using only input city"
-                    }
-                    break  # Don't retry JSON errors
-
-                except Exception as e:
-                    error_str = str(e)
-                    logger = logging.getLogger(__name__)
-
-                    # Check if this is a quota error (429)
-                    is_quota_error = '429' in error_str or 'quota' in error_str.lower() or 'rate limit' in error_str.lower()
-
-                    if is_quota_error and attempt < max_retries:
-                        # Retry with exponential backoff
-                        delay = retry_delays[attempt]
-                        logger.warning(f"API quota error for city {city} (attempt {attempt + 1}/{max_retries + 1}): {error_str}")
-                        logger.info(f"Retrying in {delay} seconds...")
-                        time.sleep(delay)
-                        continue
-                    else:
-                        # Either not a quota error, or we've exhausted retries
-                        if is_quota_error:
-                            logger.error(f"API quota exceeded for city {city} after {max_retries + 1} attempts: {error_str}")
-                            logger.info(f"Falling back to using only input city: {city}")
-                        else:
-                            logger.error(f"LLM analysis failed for city {city}: {error_str}")
-
+                        # Always include the input city
                         city_names = [city.strip()]
-                        analysis = {
-                            "error": f"LLM analysis failed: {error_str}",
-                            "fallback": "Using only input city",
-                            "quota_exceeded": is_quota_error
-                        }
-                        break
+                        city_names.extend([c.strip() for c in adjacent_cities if c.strip()])
+
+                        # Remove duplicates while preserving order
+                        city_names = list(dict.fromkeys(city_names))
+
+                        logger.info(f"Final city_names list: {city_names}")
+                        break  # Success! Exit retry loop
+
+                    except json.JSONDecodeError as je:
+                        # If LLM fails to return valid JSON, use fallback
+                        logger = logging.getLogger(__name__)
+                        logger.error(f"Failed to parse LLM response for city {city}: {str(je)}")
+                        logger.error(f"Raw response: {response_text if response_text else 'N/A'}")
+                        logger.warning(f"Falling back to hardcoded neighboring cities for {city}")
+
+                        # Try fallback dictionary
+                        use_fallback = True
+                        fallback_reason = "LLM returned invalid JSON"
+                        adjacent_cities = self._get_neighboring_cities_fallback(city)
+                        city_names = [city.strip()]
+                        city_names.extend([c.strip() for c in adjacent_cities if c.strip()])
+                        city_names = list(dict.fromkeys(city_names))
+                        break  # Don't retry JSON errors
+
+                    except Exception as e:
+                        error_str = str(e)
+                        logger = logging.getLogger(__name__)
+
+                        # Check if this is a quota error (429)
+                        is_quota_error = '429' in error_str or 'quota' in error_str.lower() or 'rate limit' in error_str.lower()
+
+                        if is_quota_error and attempt < max_retries:
+                            # Retry with exponential backoff
+                            delay = retry_delays[attempt]
+                            logger.warning(f"API quota error for city {city} (attempt {attempt + 1}/{max_retries + 1}): {error_str}")
+                            logger.info(f"Retrying in {delay} seconds...")
+                            time.sleep(delay)
+                            continue
+                        else:
+                            # Either not a quota error, or we've exhausted retries
+                            # Use fallback dictionary instead of just input city
+                            if is_quota_error:
+                                logger.error(f"API quota exceeded for city {city} after {max_retries + 1} attempts: {error_str}")
+                            else:
+                                logger.error(f"LLM analysis failed for city {city}: {error_str}")
+
+                            logger.warning(f"Falling back to hardcoded neighboring cities for {city}")
+                            use_fallback = True
+                            fallback_reason = "API quota exceeded" if is_quota_error else "LLM API failed"
+                            adjacent_cities = self._get_neighboring_cities_fallback(city)
+                            city_names = [city.strip()]
+                            city_names.extend([c.strip() for c in adjacent_cities if c.strip()])
+                            city_names = list(dict.fromkeys(city_names))
+                            break
 
             # Filter the provided destinations list by city names
             # Normalize city names for comparison
@@ -831,18 +932,31 @@ Do not include any text before or after the JSON object."""
                 if isinstance(dest_city, str) and dest_city.strip().lower() in normalized_city_names:
                     filtered_destinations.append(dest)
 
-            return {
+            # Build return dictionary
+            result = {
                 "success": True,
                 "count": len(filtered_destinations),
                 "destinations": filtered_destinations,
                 "city_names": city_names,
                 "target_city": city,
-#               "analysis": analysis,
                 "filters_applied": {
                     "city_filter": city_names
                 },
                 "note": f"Found {len(filtered_destinations)} destinations in {', '.join(city_names)}"
             }
+
+            # Add warning if fallback was used
+            if use_fallback:
+                warning_msg = f"⚠️  Note: Using hardcoded neighboring cities for {city}"
+                if fallback_reason:
+                    warning_msg += f" (Reason: {fallback_reason})"
+                if len(city_names) == 1:
+                    warning_msg += f". No neighboring cities found in fallback dictionary."
+                result["warning"] = warning_msg
+                logger = logging.getLogger(__name__)
+                logger.info(f"Returning with warning: {warning_msg}")
+
+            return result
         except Exception as e:
             return {
                 "success": False,
