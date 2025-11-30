@@ -347,7 +347,7 @@
             <div class="results-title">
                 <span>Yatra says:</span>
                 <button type="button" class="download-button" id="downloadBtn">
-                    <img src="Yatra_download.svg" alt="Download">
+                    <img src="./Yatra_download.svg" alt="Download">
                 </button>
             </div>
             <div class="results-divider"></div>
@@ -768,7 +768,7 @@
 
             try {
                 downloadBtn.disabled = true;
-                downloadBtn.innerHTML = '<img src="Yatra_download.svg" alt="Download"> Generating PDF...';
+                downloadBtn.innerHTML = '<img src="./Yatra_download.svg" alt="Download"> Generating PDF...';
 
                 // Initialize jsPDF
                 const { jsPDF } = window.jspdf;
@@ -948,11 +948,11 @@
                 const timestamp = new Date().toISOString().split('T')[0];
                 doc.save(`Yatra_Destinations_${timestamp}.pdf`);
 
-                downloadBtn.innerHTML = '<img src="Yatra_download.svg" alt="Download">';
+                downloadBtn.innerHTML = '<img src="./Yatra_download.svg" alt="Download">';
             } catch (error) {
                 console.error('Error generating PDF:', error);
                 alert('Failed to generate PDF. Please try again.');
-                downloadBtn.innerHTML = '<img src="Yatra_download.svg" alt="Download">';
+                downloadBtn.innerHTML = '<img src="./Yatra_download.svg" alt="Download">';
             } finally {
                 downloadBtn.disabled = false;
             }
