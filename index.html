@@ -790,7 +790,7 @@ function ratingTextForPDF(rawRating, mode = 'star') {
         async function downloadPDF() {
             try {
                 downloadBtn.disabled = true;
-                downloadBtn.innerHTML = '<img src="Yatra_download.svg" alt="Download"> Fetching all results...';
+                downloadBtn.innerHTML = '<img src="./Yatra_download.svg" alt="Download"> Fetching all results...';
 
                 // Fetch all destinations from the backend
                 const response = await fetch('/api/all-destinations', {
@@ -805,7 +805,7 @@ function ratingTextForPDF(rawRating, mode = 'star') {
 
                 if (!response.ok || !result.success) {
                     alert(result.error || 'Failed to fetch destinations. Please try again.');
-                    downloadBtn.innerHTML = '<img src="Yatra_download.svg" alt="Download">';
+                    downloadBtn.innerHTML = '<img src="./Yatra_download.svg" alt="Download">';
                     downloadBtn.disabled = false;
                     return;
                 }
@@ -814,12 +814,12 @@ function ratingTextForPDF(rawRating, mode = 'star') {
 
                 if (!destinationsToExport || destinationsToExport.length === 0) {
                     alert('No destinations to download. Please search for destinations first.');
-                    downloadBtn.innerHTML = '<img src="Yatra_download.svg" alt="Download">';
+                    downloadBtn.innerHTML = '<img src="./Yatra_download.svg" alt="Download">';
                     downloadBtn.disabled = false;
                     return;
                 }
 
-                downloadBtn.innerHTML = '<img src="Yatra_download.svg" alt="Download"> Generating PDF...';
+                downloadBtn.innerHTML = '<img src="./Yatra_download.svg" alt="Download"> Generating PDF...';
 
                 // Initialize jsPDF
                 const { jsPDF } = window.jspdf;
