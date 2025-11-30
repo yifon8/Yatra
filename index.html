@@ -674,6 +674,9 @@
                         if (result.destinations && result.destinations.length > 0) {
                             displayDestinations(result.destinations);
 
+                            // Scroll to top of results
+                            resultsContent.scrollTop = 0;
+
                             // Append end of results message below the destinations
                             resultsContent.innerHTML += `
                                 <p style="color: #d97531; text-align: center; font-weight: 600; margin-top: 20px; padding-top: 20px; border-top: 2px solid rgba(217, 117, 49, 0.2);">
@@ -694,6 +697,10 @@
                     } else {
                         // Display the new destinations
                         displayDestinations(result.destinations);
+
+                        // Scroll to top of results
+                        resultsContent.scrollTop = 0;
+
                         hasMoreResults = result.has_more;
 
                         // Show More button if there are more results available
