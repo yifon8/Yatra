@@ -87,6 +87,15 @@
             border-color: #d97531;
         }
 
+        .form-group select:disabled,
+        .form-group input[type="number"]:disabled,
+        .form-group input[type="text"]:disabled {
+            background-color: #f5f5f5;
+            color: #999;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
         .checkbox-group {
             display: flex;
             align-items: center;
@@ -154,6 +163,18 @@
 
         .submit-button:active {
             transform: translateY(0);
+        }
+
+        .submit-button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            box-shadow: none;
+            opacity: 0.6;
+        }
+
+        .submit-button:disabled:hover {
+            transform: none;
+            box-shadow: none;
         }
 
         .results-container {
@@ -379,6 +400,24 @@
         let isEndOfResults = false;
         let allDestinations = [];
 
+        // Function to disable all form inputs
+        function disableForm() {
+            destinationSelect.disabled = true;
+            cityInput.disabled = true;
+            hoursInput.disabled = true;
+            budgetInput.disabled = true;
+            submitBtn.disabled = true;
+        }
+
+        // Function to enable all form inputs
+        function enableForm() {
+            destinationSelect.disabled = false;
+            cityInput.disabled = false;
+            hoursInput.disabled = false;
+            budgetInput.disabled = false;
+            submitBtn.disabled = false;
+        }
+
         // Function to get form data
         function getFormData() {
             // Get destination type from dropdown
@@ -475,6 +514,7 @@
             if (!destinations || destinations.length === 0) {
                 resultsContent.innerHTML = '<p>No destinations found matching your criteria.</p>';
                 downloadBtn.style.display = 'none';
+                enableForm();
                 return;
             }
 
@@ -493,6 +533,9 @@
 
             // Show download button when there are results
             downloadBtn.style.display = 'flex';
+
+            // Re-enable form when results appear
+            enableForm();
         }
 
         // Function to send request to backend
@@ -515,7 +558,7 @@
 
             // Show loading state
             resultsContent.innerHTML = '<p>🔍 Searching for the best destinations for you...</p>';
-            submitBtn.disabled = true;
+            disableForm();
             downloadBtn.style.display = 'none';
 
             try {
@@ -572,6 +615,7 @@
                         </p>
                     `;
                     moreBtn.style.display = 'none';
+                    enableForm();
                 } else if (result.error) {
                     // Server returned a specific error message (400 or other error)
                     resultsContent.innerHTML = `
@@ -580,6 +624,7 @@
                         </p>
                     `;
                     moreBtn.style.display = 'none';
+                    enableForm();
                 } else {
                     // Unexpected error format
                     resultsContent.innerHTML = `
@@ -588,6 +633,7 @@
                         </p>
                     `;
                     moreBtn.style.display = 'none';
+                    enableForm();
                 }
 
             } catch (error) {
@@ -601,8 +647,7 @@
                     </p>
                 `;
                 moreBtn.style.display = 'none';
-            } finally {
-                submitBtn.disabled = false;
+                enableForm();
             }
         }
 
@@ -726,6 +771,9 @@
             // Hide More and Download buttons
             moreBtn.style.display = 'none';
             downloadBtn.style.display = 'none';
+
+            // Re-enable form
+            enableForm();
         }
 
         // Function to generate family-friendly reason based on destination type and info
