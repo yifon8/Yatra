@@ -893,10 +893,8 @@ function ratingTextForPDF(rawRating, mode = 'star') {
                 function calculateDestinationHeight(dest, index) {
                     let height = 0;
 
-                    // Name and rating
-                    const name = dest.name || dest.place || 'Unknown Destination';
-                    const nameLines = doc.splitTextToSize(`${index + 1}. ${name}`, contentWidth);
-                    height += nameLines.length * 6; // Name line height
+                    // Name and rating (both on same line now)
+                    height += 7; // Single line for name and rating
 
                     // Type
                     const type = dest.type || '';
@@ -962,13 +960,17 @@ function ratingTextForPDF(rawRating, mode = 'star') {
                     const name = dest.name || dest.place || 'Unknown Destination';
                     const rating = dest.google_review_rating || dest.rating || 'N/A';
 
+                    // Draw destination name on the left
                     let nameText = `${i + 1}. ${name}`;
+                    doc.text(nameText, margin, yPosition);
+
+                    // Draw rating right-aligned on the same line if available
                     if (rating !== 'N/A' && rating !== '') {
-                        nameText += `Rating: ${rating}/5`;
+                        const ratingText = `Rating: ${rating}/5`;
+                        const ratingWidth = doc.getTextWidth(ratingText);
+                        doc.text(ratingText, pageWidth - margin - ratingWidth, yPosition);
                     }
 
-                    const nameLines = doc.splitTextToSize(nameText, contentWidth);
-                    doc.text(nameLines, margin, yPosition, { maxWidth: contentWidth });
                     yPosition += 7;
 
                     // Details
