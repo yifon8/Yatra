@@ -516,6 +516,7 @@
             // Show loading state
             resultsContent.innerHTML = '<p>🔍 Searching for the best destinations for you...</p>';
             submitBtn.disabled = true;
+            downloadBtn.style.display = 'none';
 
             try {
                 // Send POST request to backend API
