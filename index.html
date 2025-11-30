@@ -759,6 +759,33 @@
             }
         }
 
+        // Helper to produce a safe rating string for the PDF.
+// mode: 'star' uses a star character (★). 'text' uses "Rating of ".
+function ratingTextForPDF(rawRating, mode = 'star') {
+  if (rawRating === null || rawRating === undefined) return '';
+  const s = String(rawRating).trim();
+
+  // If it's empty or N/A
+  if (s === '' || /^(n\/?a)$/i.test(s)) return '';
+
+  // If the rating contains a numeric value, extract it
+  const numMatch = s.match(/(\d+(\.\d+)?)/);
+  if (numMatch) {
+    const num = numMatch[1];
+    return mode === 'star' ? ` ★ ${num}/5` : ` Rating of ${num}/5`;
+  }
+
+  // Otherwise replace any '&' or '&amp;' with chosen text
+  const replacement = mode === 'star' ? ' ★ ' : ' Rating of ';
+  return ` ${s.replace(/&amp;|&/g, replacement)}`;
+}
+
+// Example usage within your existing downloadPDF function:
+// const rating = dest.google_review_rating || dest.rating || 'N/A';
+// nameText += ratingTextForPDF(rating, 'star');    // use star
+// OR
+// nameText += ratingTextForPDF(rating, 'text');    // use "Rating of "
+
         // Function to download PDF with all destinations
         async function downloadPDF() {
             if (!allDestinations || allDestinations.length === 0) {
@@ -799,7 +826,7 @@
                     // Name and rating
                     const name = dest.name || dest.place || 'Unknown Destination';
                     const nameLines = doc.splitTextToSize(`${index + 1}. ${name}`, contentWidth);
-                    height += 7; // Name line height
+                    height += 6; // Name line height
 
                     // Type
                     const type = dest.type || '';
@@ -836,11 +863,11 @@
                     // Family-friendly reason
                     height += 3;
                     const familyReason = getFamilyFriendlyReason(dest);
-                    const reasonLines = doc.splitTextToSize(`✓ Family-Friendly: ${familyReason}`, contentWidth);
+                    const reasonLines = doc.splitTextToSize(`Family-Friendly: ${familyReason}`, contentWidth);
                     height += reasonLines.length * 4;
 
                     // Separator and spacing
-                    height += 16; // 8 for spacing before separator + 8 after
+                    height += 12; // 6 for spacing before separator + 6 after
 
                     return height;
                 }
@@ -928,15 +955,15 @@
                     doc.setFontSize(9);
                     doc.setTextColor(0, 100, 0); // Green color for family-friendly
                     const familyReason = getFamilyFriendlyReason(dest);
-                    const reasonLines = doc.splitTextToSize(`✓ Family-Friendly: ${familyReason}`, contentWidth);
+                    const reasonLines = doc.splitTextToSize(`Family-Friendly: ${familyReason}`, contentWidth);
                     doc.text(reasonLines, margin, yPosition, { maxWidth: contentWidth });
-                    yPosition += reasonLines.length * 4 + 8;
+                    yPosition += reasonLines.length * 4 + 6;
 
                     // Add a separator line
                     doc.setDrawColor(217, 117, 49);
                     doc.setLineWidth(0.5);
                     doc.line(margin, yPosition, pageWidth - margin, yPosition);
-                    yPosition += 8;
+                    yPosition += 6;
                 }
 
                 // Footer on last page
