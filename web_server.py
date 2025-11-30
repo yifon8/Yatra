@@ -140,6 +140,12 @@ def serve_index():
     return send_from_directory('.', 'index.html')
 
 
+@app.route('/Yatra_download.svg')
+def serve_svg():
+    """Serve the download SVG icon"""
+    return send_from_directory('.', 'Yatra_download.svg')
+
+
 def extract_destinations_from_tools(tools_used: List[Dict]) -> List[Dict]:
     """
     Extract all destinations from tool results
