@@ -429,6 +429,49 @@ def get_more_destinations():
         }), 500
 
 
+@app.route('/api/all-destinations', methods=['GET'])
+def get_all_destinations():
+    """
+    Get all filtered destinations from the current search (for PDF export)
+
+    Returns:
+        All destinations from the sorted list (up to 25 for PDF export)
+    """
+    try:
+        # Get session ID
+        session_id = session.get('search_session_id')
+
+        if not session_id or session_id not in destinations_cache:
+            return jsonify({
+                'success': False,
+                'error': 'No active search. Please submit a new search first.'
+            }), 400
+
+        # Get cached data
+        cache_entry = destinations_cache[session_id]
+        all_destinations = cache_entry['destinations']
+
+        # Limit to 25 destinations for PDF export
+        destinations_for_export = all_destinations[:25]
+
+        return jsonify({
+            'success': True,
+            'destinations': destinations_for_export,
+            'total_count': len(all_destinations),
+            'exported_count': len(destinations_for_export)
+        })
+
+    except Exception as e:
+        print(f"❌ Error getting all destinations: {str(e)}")
+        import traceback
+        traceback.print_exc()
+
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
 @app.route('/api/restart', methods=['POST'])
 def restart_search():
     """
