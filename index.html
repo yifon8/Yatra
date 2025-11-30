@@ -436,7 +436,7 @@
             let html = `<strong>${name}</strong>`;
 
             if (rating !== 'N/A' && rating !== '') {
-                html += ` <span style="color: #d97531;">★ ${rating}/5</span>`;
+                html += ` <span style="color: #d97531;"Rating: ${rating}/5</span>`;
             }
 
             html += '<br>';
@@ -772,11 +772,11 @@ function ratingTextForPDF(rawRating, mode = 'star') {
   const numMatch = s.match(/(\d+(\.\d+)?)/);
   if (numMatch) {
     const num = numMatch[1];
-    return mode === 'star' ? ` ★ ${num}/5` : ` Rating of ${num}/5`;
+    return mode === 'star' ? ` ★ ${num}/5` : ` Rating: ${num}/5`;
   }
 
   // Otherwise replace any '&' or '&amp;' with chosen text
-  const replacement = mode === 'star' ? ' ★ ' : ' Rating of ';
+  const replacement = mode === 'star' ? ' ★ ' : ' Rating: ';
   return ` ${s.replace(/&amp;|&/g, replacement)}`;
 }
 
@@ -826,7 +826,7 @@ function ratingTextForPDF(rawRating, mode = 'star') {
                     // Name and rating
                     const name = dest.name || dest.place || 'Unknown Destination';
                     const nameLines = doc.splitTextToSize(`${index + 1}. ${name}`, contentWidth);
-                    height += 6; // Name line height
+                    height += nameLines.length * 6; // Name line height
 
                     // Type
                     const type = dest.type || '';
@@ -894,7 +894,7 @@ function ratingTextForPDF(rawRating, mode = 'star') {
 
                     let nameText = `${i + 1}. ${name}`;
                     if (rating !== 'N/A' && rating !== '') {
-                        nameText += ` ★ ${rating}/5`;
+                        nameText += `Rating: ${rating}/5`;
                     }
 
                     const nameLines = doc.splitTextToSize(nameText, contentWidth);
