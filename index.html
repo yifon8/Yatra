@@ -788,14 +788,38 @@ function ratingTextForPDF(rawRating, mode = 'star') {
 
         // Function to download PDF with all destinations
         async function downloadPDF() {
-            if (!allDestinations || allDestinations.length === 0) {
-                alert('No destinations to download. Please search for destinations first.');
-                return;
-            }
-
             try {
                 downloadBtn.disabled = true;
-                downloadBtn.innerHTML = '<img src="./Yatra_download.svg" alt="Download"> Generating PDF...';
+                downloadBtn.innerHTML = '<img src="Yatra_download.svg" alt="Download"> Fetching all results...';
+
+                // Fetch all destinations from the backend
+                const response = await fetch('/api/all-destinations', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include'
+                });
+
+                const result = await response.json();
+
+                if (!response.ok || !result.success) {
+                    alert(result.error || 'Failed to fetch destinations. Please try again.');
+                    downloadBtn.innerHTML = '<img src="Yatra_download.svg" alt="Download">';
+                    downloadBtn.disabled = false;
+                    return;
+                }
+
+                const destinationsToExport = result.destinations;
+
+                if (!destinationsToExport || destinationsToExport.length === 0) {
+                    alert('No destinations to download. Please search for destinations first.');
+                    downloadBtn.innerHTML = '<img src="Yatra_download.svg" alt="Download">';
+                    downloadBtn.disabled = false;
+                    return;
+                }
+
+                downloadBtn.innerHTML = '<img src="Yatra_download.svg" alt="Download"> Generating PDF...';
 
                 // Initialize jsPDF
                 const { jsPDF } = window.jspdf;
@@ -815,9 +839,6 @@ function ratingTextForPDF(rawRating, mode = 'star') {
                 doc.setTextColor(217, 117, 49); // Orange color
                 doc.text('Yatra - Family-Friendly Destinations', pageWidth / 2, yPosition, { align: 'center' });
                 yPosition += 15;
-
-                // Limit to 25 destinations as requested
-                const destinationsToExport = allDestinations.slice(0, 25);
 
                 // Helper function to calculate height needed for a destination block
                 function calculateDestinationHeight(dest, index) {
