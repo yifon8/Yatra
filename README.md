@@ -15,9 +15,53 @@ Open `index.html` in a browser to access the interactive form for planning famil
 ## AI Agent
 
 An intelligent travel agent that suggests destinations based on user preferences using:
-- **Google Gemini AI** for qualitative analysis
+- **Google Gemini AI** for qualitative analysis with Google Search
 - **Kaggle datasets** for real destination data
 - **Pandas** for quantitative filtering
+
+## ARCHITECTURE (written by Claude Code, as it produced majority of code)
+
+Hybrid-Intelligence Architecture
+• Stage 1: Deterministic quantitative filtering using Pandas (fast, predictable, cost-effective)
+• Stage 2: LLM-powered qualitative analysis with web search grounding (nuanced, context-aware)
+Agentic Reasoning
+• City Validation: LLM verifies cities are in India via web search
+• Geographic Expansion: Dynamically discovers adjacent cities (e.g., Mumbai → Navi Mumbai, Thane, Kalyan)
+• Family-Friendly Assessment: Searches official tourism sites for safety warnings
+Production-Ready Engineering
+• Cancellable long-running operations
+• Exponential backoff retry logic for API quotas
+• Session-based caching
+• Comprehensive error handling
+Design Patterns
+• Blacklist-based safety filter: Permissive by default, excludes only explicit warnings
+• Deterministic-first design: Reduces LLM calls by 90%+
+• Graceful degradation: Falls back to hardcoded mappings when APIs fail
+Technical
+• Google Gemini 2.5 Flash Lite with Google web search integration
+• Real Kaggle dataset
+• Full-stack implementation (Flask API + web interface)
+• Transparent reasoning with filtering pipeline traces
+Data Flow and Tech Stack
+• User input > Frontend validation > Backend session > Agent pipeline > Pandas filter and LLM Analysis > Grounded results > Pagination > Frontend Display
+• Python 3.x, Flask REST API, Google Gemini 2.5 Flash Lite, Pandas/NumPy, Google Search API
+
+## Stand up local web server and run agent app
+Installation Steps:
+1. Use the cd command to navigate to the directory where you want to save the project.
+2. Clone repo from https://github.com/yifon8/Yatra > click Code button > choose method and copy string. (Https method: terminal or command line > git clone https://github.com/yifon8/Yatra) Repo already contains the 9kb .csv dataset under data directory.
+(Claude Code:) Install dependencies: pip install -r requirements.txt
+
+Configuration: Details on any environment variables, configuration files, or API keys that need to be set up
+1. Create Google Cloud Console API key > enable Gemini and Google Search APIs in Cloud Console > go to detail of Cloud Console API key, restrict to only these two enabled APIs > set the API key locally for Yatra
+2. (Claude Code:) Set Google API key: (on Mac) export GOOGLE_API_KEY='your-key'
+
+Running the Project:
+Steps:
+1. open terminal or cmd window
+2. navigate to directory to which you cloned Yatra repo
+3. enter command to cli: python web_server.py
+4. go to local web server window
 
 ### Quick Start
 
