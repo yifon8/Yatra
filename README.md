@@ -1,6 +1,12 @@
 # Yatra
 Travel Planner for families visiting India
 
+# Problem
+Data used for family trip travel planning fragmented across several app, websites, platforms.  Difficulty in making sure each destination is family friendly.
+
+# Solution
+One interface for families planning to visit India, considering destination type, target city (plus web searched adjacent cities), visit duration, and budget per person.  On the backend, the system also applies a greater than 4 stars out of 5 rating filter, and vets each destination suggestion candidate at the end for family friendliness using 2 top current sources by calling Google Search API and conducting qualitative analysis of the resulting content.
+
 ## Overview
 
 Yatra consists of two components:
